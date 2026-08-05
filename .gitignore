@@ -1,4 +1,10 @@
 # Python
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
 __pycache__/
 *.py[cod]
 *$py.class

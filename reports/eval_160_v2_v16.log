@@ -1,0 +1,191 @@
+Experiment qwen3.7-flash_v16_v2 is running at https://www.braintrust.dev/app/UW-Madison/p/AMFAM%20v2/experiments/qwen3.7-flash_v16_v2
+Running evaluation with qwen/qwen3.7-flash using prompt v16 on 160 images
+Evaluation project: AMFAM v2 (ba0346b3-cad8-463d-b758-afddafd9f0d0), Dataset from: AMFAM v2/fixed_size_sampled_v2
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (data): 0it [00:00, ?it/s]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (data): 160it [00:00, 299593.14it/s]
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):   0%|          | 0/160 [00:00<?, ?it/s]ERROR: rvl_cdip__memo__0005.png: model returned no usable content (finish_reason=error)
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):   1%|          | 1/160 [03:22<8:57:32, 202.84s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  14%|█▍        | 23/160 [04:58<23:55, 10.48s/it]  AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  22%|██▎       | 36/160 [05:17<13:16,  6.42s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  24%|██▍       | 39/160 [08:35<28:27, 14.11s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  29%|██▉       | 47/160 [09:14<20:48, 11.05s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  39%|███▉      | 63/160 [09:18<09:23,  5.81s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  40%|████      | 64/160 [09:21<09:07,  5.71s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  41%|████▏     | 66/160 [09:53<10:39,  6.80s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  42%|████▏     | 67/160 [10:09<11:29,  7.41s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  45%|████▌     | 72/160 [10:09<07:15,  4.95s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  48%|████▊     | 77/160 [10:18<05:28,  3.95s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  49%|████▉     | 78/160 [10:26<05:48,  4.25s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  49%|████▉     | 79/160 [11:00<10:11,  7.55s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  52%|█████▎    | 84/160 [11:42<09:55,  7.84s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  53%|█████▎    | 85/160 [12:46<17:37, 14.10s/it]ERROR: rvl_cdip__budget__0008.png: model returned no usable content (finish_reason=length)
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  54%|█████▍    | 86/160 [14:37<33:44, 27.36s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  61%|██████    | 97/160 [15:00<10:36, 10.10s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  69%|██████▉   | 111/160 [16:21<06:17,  7.70s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  70%|███████   | 112/160 [16:44<06:49,  8.52s/it]ERROR: rvl_cdip__scientific_report__0008.png: model returned no usable content (finish_reason=length)
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  71%|███████   | 113/160 [18:41<12:44, 16.26s/it]ERROR: rvl_cdip__scientific_publication__0010.png: model returned no usable content (finish_reason=length)
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  76%|███████▌  | 121/160 [20:26<09:38, 14.84s/it]ERROR: rvl_cdip__resume__0010.png: model returned no usable content (finish_reason=length)
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  82%|████████▏ | 131/160 [21:41<05:35, 11.56s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  91%|█████████ | 145/160 [22:27<01:55,  7.67s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  93%|█████████▎| 149/160 [22:40<01:16,  6.98s/it]ERROR: rvl_cdip__presentation__0005.png: model returned no usable content (finish_reason=length)
+AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks):  98%|█████████▊| 156/160 [25:14<00:45, 11.29s/it]AMFAM v2 [experiment_name=qwen3.7-flash_v16_v2] (tasks): 100%|██████████| 160/160 [25:14<00:00,  9.47s/it]
+OK   advertisement            advertisement            rvl_cdip__advertisement__0001.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0002.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0003.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0004.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0005.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0006.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0007.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0008.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0009.png
+OK   advertisement            advertisement            rvl_cdip__advertisement__0010.png
+MISS  budget                   invoice                  rvl_cdip__budget__0001.png
+OK   budget                   budget                   rvl_cdip__budget__0002.png
+OK   budget                   budget                   rvl_cdip__budget__0003.png
+MISS  budget                   invoice                  rvl_cdip__budget__0004.png
+OK   budget                   budget                   rvl_cdip__budget__0005.png
+MISS  budget                   invoice                  rvl_cdip__budget__0006.png
+OK   budget                   budget                   rvl_cdip__budget__0007.png
+MISS  budget                   form                     rvl_cdip__budget__0009.png
+MISS  budget                   scientific_report        rvl_cdip__budget__0010.png
+OK   email                    email                    rvl_cdip__email__0001.png
+OK   email                    email                    rvl_cdip__email__0002.png
+OK   email                    email                    rvl_cdip__email__0003.png
+OK   email                    email                    rvl_cdip__email__0004.png
+MISS  email                    form                     rvl_cdip__email__0005.png
+OK   email                    email                    rvl_cdip__email__0006.png
+OK   email                    email                    rvl_cdip__email__0007.png
+OK   email                    email                    rvl_cdip__email__0008.png
+OK   email                    email                    rvl_cdip__email__0009.png
+OK   email                    email                    rvl_cdip__email__0010.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0001.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0002.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0003.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0004.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0005.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0006.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0007.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0008.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0009.png
+OK   file_folder              file_folder              rvl_cdip__file_folder__0010.png
+OK   form                     form                     rvl_cdip__form__0001.png
+OK   form                     form                     rvl_cdip__form__0002.png
+OK   form                     form                     rvl_cdip__form__0003.png
+MISS  form                     file_folder              rvl_cdip__form__0004.png
+OK   form                     form                     rvl_cdip__form__0005.png
+OK   form                     form                     rvl_cdip__form__0006.png
+OK   form                     form                     rvl_cdip__form__0007.png
+OK   form                     form                     rvl_cdip__form__0008.png
+OK   form                     form                     rvl_cdip__form__0009.png
+MISS  form                     specification            rvl_cdip__form__0010.png
+OK   handwritten              handwritten              rvl_cdip__handwritten__0001.png
+OK   handwritten              handwritten              rvl_cdip__handwritten__0002.png
+OK   handwritten              handwritten              rvl_cdip__handwritten__0003.png
+OK   handwritten              handwritten              rvl_cdip__handwritten__0004.png
+OK   handwritten              handwritten              rvl_cdip__handwritten__0005.png
+OK   handwritten              handwritten              rvl_cdip__handwritten__0006.png
+MISS  handwritten              letter                   rvl_cdip__handwritten__0007.png
+MISS  handwritten              letter                   rvl_cdip__handwritten__0008.png
+MISS  handwritten              letter                   rvl_cdip__handwritten__0009.png
+MISS  handwritten              letter                   rvl_cdip__handwritten__0010.png
+MISS  invoice                  budget                   rvl_cdip__invoice__0001.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0002.png
+MISS  invoice                  form                     rvl_cdip__invoice__0003.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0004.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0005.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0006.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0007.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0008.png
+OK   invoice                  invoice                  rvl_cdip__invoice__0009.png
+MISS  invoice                  form                     rvl_cdip__invoice__0010.png
+OK   letter                   letter                   rvl_cdip__letter__0001.png
+OK   letter                   letter                   rvl_cdip__letter__0002.png
+OK   letter                   letter                   rvl_cdip__letter__0003.png
+OK   letter                   letter                   rvl_cdip__letter__0004.png
+OK   letter                   letter                   rvl_cdip__letter__0005.png
+OK   letter                   letter                   rvl_cdip__letter__0006.png
+OK   letter                   letter                   rvl_cdip__letter__0007.png
+OK   letter                   letter                   rvl_cdip__letter__0008.png
+OK   letter                   letter                   rvl_cdip__letter__0009.png
+MISS  letter                   memo                     rvl_cdip__letter__0010.png
+OK   memo                     memo                     rvl_cdip__memo__0001.png
+OK   memo                     memo                     rvl_cdip__memo__0002.png
+OK   memo                     memo                     rvl_cdip__memo__0003.png
+OK   memo                     memo                     rvl_cdip__memo__0004.png
+OK   memo                     memo                     rvl_cdip__memo__0006.png
+OK   memo                     memo                     rvl_cdip__memo__0007.png
+OK   memo                     memo                     rvl_cdip__memo__0008.png
+OK   memo                     memo                     rvl_cdip__memo__0009.png
+OK   memo                     memo                     rvl_cdip__memo__0010.png
+OK   news_article             news_article             rvl_cdip__news_article__0001.png
+OK   news_article             news_article             rvl_cdip__news_article__0002.png
+OK   news_article             news_article             rvl_cdip__news_article__0003.png
+MISS  news_article             advertisement            rvl_cdip__news_article__0004.png
+OK   news_article             news_article             rvl_cdip__news_article__0005.png
+OK   news_article             news_article             rvl_cdip__news_article__0006.png
+OK   news_article             news_article             rvl_cdip__news_article__0007.png
+OK   news_article             news_article             rvl_cdip__news_article__0008.png
+OK   news_article             news_article             rvl_cdip__news_article__0009.png
+OK   news_article             news_article             rvl_cdip__news_article__0010.png
+OK   presentation             presentation             rvl_cdip__presentation__0001.png
+OK   presentation             presentation             rvl_cdip__presentation__0002.png
+MISS  presentation             scientific_report        rvl_cdip__presentation__0003.png
+OK   presentation             presentation             rvl_cdip__presentation__0004.png
+OK   presentation             presentation             rvl_cdip__presentation__0006.png
+OK   presentation             presentation             rvl_cdip__presentation__0007.png
+OK   presentation             presentation             rvl_cdip__presentation__0008.png
+OK   presentation             presentation             rvl_cdip__presentation__0009.png
+OK   presentation             presentation             rvl_cdip__presentation__0010.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0001.png
+MISS  questionnaire            presentation             rvl_cdip__questionnaire__0002.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0003.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0004.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0005.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0006.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0007.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0008.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0009.png
+OK   questionnaire            questionnaire            rvl_cdip__questionnaire__0010.png
+OK   resume                   resume                   rvl_cdip__resume__0001.png
+OK   resume                   resume                   rvl_cdip__resume__0002.png
+OK   resume                   resume                   rvl_cdip__resume__0003.png
+OK   resume                   resume                   rvl_cdip__resume__0004.png
+OK   resume                   resume                   rvl_cdip__resume__0005.png
+OK   resume                   resume                   rvl_cdip__resume__0006.png
+OK   resume                   resume                   rvl_cdip__resume__0007.png
+OK   resume                   resume                   rvl_cdip__resume__0008.png
+OK   resume                   resume                   rvl_cdip__resume__0009.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0001.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0002.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0003.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0004.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0005.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0006.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0007.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0008.png
+OK   scientific_publication   scientific_publication   rvl_cdip__scientific_publication__0009.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0001.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0002.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0003.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0004.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0005.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0006.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0007.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0009.png
+OK   scientific_report        scientific_report        rvl_cdip__scientific_report__0010.png
+OK   specification            specification            rvl_cdip__specification__0001.png
+OK   specification            specification            rvl_cdip__specification__0002.png
+OK   specification            specification            rvl_cdip__specification__0003.png
+OK   specification            specification            rvl_cdip__specification__0004.png
+OK   specification            specification            rvl_cdip__specification__0005.png
+OK   specification            specification            rvl_cdip__specification__0006.png
+OK   specification            specification            rvl_cdip__specification__0007.png
+OK   specification            specification            rvl_cdip__specification__0008.png
+OK   specification            specification            rvl_cdip__specification__0009.png
+MISS  specification            form                     rvl_cdip__specification__0010.png
+FAIL memo                                              rvl_cdip__memo__0005.png
+FAIL budget                                            rvl_cdip__budget__0008.png
+FAIL scientific_report                                 rvl_cdip__scientific_report__0008.png
+FAIL scientific_publication                            rvl_cdip__scientific_publication__0010.png
+FAIL resume                                            rvl_cdip__resume__0010.png
+FAIL presentation                                      rvl_cdip__presentation__0005.png
+
+advertisement            10/10 (100%)
+budget                   4/10 (40%)
+email                    9/10 (90%)
+file_folder              10/10 (100%)
+form                     8/10 (80%)
+handwritten              6/10 (60%)
+invoice                  7/10 (70%)
+letter                   9/10 (90%)
+memo                     9/10 (90%)
+news_article             9/10 (90%)
+presentation             8/10 (80%)
+questionnaire            9/10 (90%)
+resume                   9/10 (90%)
+scientific_publication   9/10 (90%)
+scientific_report        9/10 (90%)
+specification            9/10 (90%)
+
+6 failed rows counted as misses (tracked as `failed` metric)
+exact_match 134/160 (83.8%)

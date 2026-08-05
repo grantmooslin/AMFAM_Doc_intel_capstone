@@ -785,3 +785,71 @@ up well given the larger, noisier sample. Biggest miss buckets:
   `qwen3.7-flash_v13_hard_eval` on `qwen_v115_v12_eval`; result logs are
   `reports/eval_160_v2_v11_9.log`, `reports/eval_160_v13.log`, and
   `reports/eval_hard_v13.log`.
+
+---
+
+## Cross-model v11.8 runs — temperature/reasoning sweep on `fixed_size_sampled` (v1)
+
+Three additional v11.8 runs on the original 160-image `fixed_size_sampled` slice plus one
+retroactive run on the 52-row `qwen_v12_retroactive_eval` slice. All runs use the v11.8 prompt;
+reasoning is set to each model family's maximum effort (qwen `high`, kimi `xhigh`, gemini `max`).
+
+| Run | Dataset | Temp | Model | Accuracy |
+|-----|---------|-----:|-------|---------:|
+| `qwen3.7-flash_v11_8_reasoning_160_t0_3` | fixed_size_sampled | 0.3 | qwen3.7-flash | **98.7%** (157/159) |
+| `qwen3.5-35b-a3b_v11_8_reasoning_160` | fixed_size_sampled | 0.1 | qwen3.5-35b-a3b | **98.7%** (155/157) |
+| `qwen3.5-35b-a3b_v11_8_reasoning_v12retro` | qwen_v12_retroactive_eval | 0.1 | qwen3.5-35b-a3b | 30.8% (16/52) |
+| `kimi-k2.6_v11_8_reasoning_160` | fixed_size_sampled | 0.1 | kimi-k2.6 | aborted (network outage) |
+| `gemini-2.5-flash-lite_v11_8_reasoning_160` | fixed_size_sampled | 0.2 | gemini-2.5-flash-lite | **86.9%** (139/160) |
+
+### qwen3.7-flash at temperature 0.3 — `qwen3.7-flash_v11_8_reasoning_160_t0_3`
+
+Baseline comparison: v11.8 at temp 0.1 scored 157/158 (99.4%) on this slice. At temp 0.3 the
+run scores **157/159 (98.7%)** with one row failing to produce content (`wat19d00`, no usable
+output after retries). Both remaining misses are pre-existing v11.7-era rows:
+
+- ✗ `jed71e00` — form → presentation (the long-standing deck-chart miss; also v11.8's only
+  160-set miss at temp 0.1)
+- ✗ `tqi16e00` — budget → invoice (OUTDOOR ESTIMATE RECAP; was fixed by v11.7/v11.8 at temp
+  0.1, regressed back at 0.3)
+
+So temperature 0.3 costs one regression on the budget/invoice boundary without recovering
+`jed71e00`; net −0.7pp vs temp 0.1 on scored rows.
+
+### qwen3.5-35b-a3b (max reasoning) — `qwen3.5-35b-a3b_v11_8_reasoning_160`
+
+First run of the hybrid-reasoning Qwen3.5-35B-A3B on this slice: **155/157 (98.7%)**, three rows
+failed to produce usable content (`mvr50f00`, `iby31c00`, `umv76d00` — Qwen3.5 burns long
+reasoning traces; retries grew max_tokens to 16k but still capped). Misses:
+
+- ✗ `jed71e00` — form → presentation (same recurring miss)
+- ✗ `noz90d00` — form → advertisement (new single error for this model)
+
+### qwen3.5-35b-a3b on the v12 retroactive slice — `qwen3.5-35b-a3b_v11_8_reasoning_v12retro`
+
+On the 52-row `qwen_v12_retroactive_eval` slice (all rows previously misclassified by v12),
+qwen3.5-35b-a3b with v11.8 scores **16/52 (30.8%)**. Five rows errored with
+`finish_reason=length` (`rvl_cdip__form__0005.png`, `rvl_cdip__invoice__0006.png`,
+`rvl_cdip__presentation__0011.png`, `rvl_cdip__questionnaire__0005.png`,
+`rvl_cdip__scientific_report__0016.png`). Notable: this slice is hard by construction (every
+row is a known v12 miss), so the low absolute score is expected; the top confusion buckets are
+letter → memo (5), scientific_report → form (4), budget/invoice and file_folder/presentation
+pairs (2 each).
+
+Full per-run artifacts: `reports/report_*_v11_8_*.md`, `reports/confusion_matrix_*_v11_8_*.{md,png}`,
+`reports/misclassification_reasoning_*_v11_8_*.md`, `reports/per_class_accuracy_*_v11_8_*.png`.
+
+### gemini-2.5-flash-lite (max reasoning) — `gemini-2.5-flash-lite_v11_8_reasoning_160`
+
+Completed at **139/160 (86.9%)**, temperature 0.2, `reasoning.effort=max`. Notable: it is the
+only one of the v11.8 runs with zero failed/empty rows. The miss profile is different from the
+qwen family — heavy `→ specification` pull (memo 3, form 2, handwritten/letter/scientific_report
+1 each) plus `scientific_publication → scientific_report` (2) and `budget → invoice` (2). The
+`jed71e00` (form → presentation) miss that every qwen run made was NOT missed by gemini.
+
+### kimi-k2.6 (xhigh reasoning) — `kimi-k2.6_v11_8_reasoning_160` (aborted)
+
+Run was aborted mid-flight (~109/160 completed) due to a transient DNS/network outage against
+`api.braintrust.dev` that crashed the Braintrust logging thread (no usable result row). The
+manifest (`reports/manifests/eval_v11_8_kimi.jsonl`) preserves the completed rows if a rerun is
+wanted; the experiment in Braintrust is partial and should not be used for comparisons.

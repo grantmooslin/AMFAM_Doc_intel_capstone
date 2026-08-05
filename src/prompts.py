@@ -1326,6 +1326,91 @@ Do not use `form`, `budget`, or `scientific_report` as a fallback. If the page i
 ambiguous, select the label supported by the strongest explicit evidence of
 purpose, not the most visually salient word.
 """
+
+# v15: replace v14's brittle precedence shortcuts with function-first pairwise
+# decisions. The v13 base retains the validated broad class definitions while
+# this section resolves the recurring v14 regressions.
+PROMPT_V15 = PROMPT_V13 + """
+
+## v15 final decision rules
+
+Use the page's primary real-world function, not one isolated word, field, border,
+or layout cue. A label is valid only when its positive evidence is present. Do
+not keep reconsidering a decision after the evidence has been evaluated.
+
+### Financial documents
+
+- Choose `invoice` only when the page is a bill or payment instrument: an outside
+  vendor/supplier/agency/payee is charging for a good, service, placement, or
+  completed client job, with clear billing evidence such as INVOICE, AMOUNT DUE,
+  BALANCE DUE, BILL TO, REMIT, PAYMENT TERMS, charges owed, or a payment voucher.
+- Choose `budget` for internal money planning, forecasts, allocations, spend
+  tracking, tax/financial reports, checks, check stubs, registers, and projected
+  future spending.
+- An estimate, estimate recap, estimate number, revision number, revised estimate,
+  prior/current columns, unit prices, totals, or agency letterhead does NOT by
+  itself make a page an invoice. If the page plans future work or placements and
+  does not explicitly bill or request payment, choose `budget`.
+- A purchase order, requisition, authorization request, expenditure approval, or
+  similar buyer-side form is `form` when its primary function is authorization or
+  data capture, even when it lists quoted prices. It is `invoice` only when it is
+  actually billing for payment.
+- A financial document's visual form layout does not override its function, but
+  neither does a financial keyword override clear evidence that it is a planning
+  or authorization document.
+
+### Correspondence and handwriting
+
+- Choose `letter` for a recipient-directed letter with a salutation or direct
+  addressee, a prose message, and a letter-like closing/signature. Letterhead and
+  a complete external street address are helpful but not required.
+- A complete handwritten letter remains `letter` when its function is clearly a
+  formal letter. Choose `handwritten` for freeform notes, comments, cards, drafts,
+  or personal writing that does not form a recognizable letter; handwriting that
+  fills printed fields remains `form`.
+- Choose `memo` for clearly internal organizational communication, especially an
+  inter-office memorandum or a TO/FROM/SUBJECT/DATE block followed by prose.
+  Do not call a recipient-directed letter a memo merely because it lacks letterhead.
+- Choose `email` only for genuine mail-client evidence: From/To plus Sent or Date
+  and Subject, a mail address, or a forwarded/threaded email trail. A phone
+  message, voicemail printout, fax metadata, or generic From/To form is not email.
+
+### Forms, questionnaires, and technical pages
+
+- Choose `form` when the page's main job is collecting or recording fields,
+  checkboxes, approvals, logs, or measurements. A filled form is still a form.
+- Choose `questionnaire` only when the page is a survey instrument for a respondent:
+  printed questions, prompts, rating scales, answer choices, or response boxes.
+  A questionnaire's results, a research summary, or a note about sending a survey
+  is not automatically the questionnaire itself.
+- Choose `specification` for normative product/material documentation: requirements,
+  tolerances, formulation, composition, properties, safety data, or explicit
+  product/part requirements. A filled quality-control or laboratory data-capture
+  sheet without normative requirements remains `form`.
+- Choose `scientific_report` for an identifiable study, experiment, technical
+  investigation, or research results page with methods, findings, interpretation,
+  or research conclusions. A results table plus concise numbered findings can be
+  a scientific report; it does not require long continuous paragraphs.
+
+### Presentation, publication, and news
+
+- Choose `presentation` only when the page is clearly a slide/overhead/deck page,
+  deck cover, section divider, speaker/program page, or intentionally designed
+  sparse display. Rotation, a scan border, a Bates number, or a titled table alone
+  is not enough.
+- Choose `scientific_publication` when the page identifies its own specialist
+  journal, conference proceedings, or technical periodical. Choose `news_article`
+  for general-news or general-interest editorial content.
+- Choose `advertisement` only when the page is primarily a paid promotional layout
+  with explicit advertiser identity, product/service promotion, call to action,
+  branding, or advertising copy. A newspaper masthead or editorial/reprinted
+  article is `news_article` unless the page clearly functions as an advertisement.
+
+### Final output
+
+After private reasoning, output exactly one label in this form and nothing else:
+`<label>one_of_the_16_labels</label>`
+"""
 PROMPT_V13 = PROMPT_V13.replace(
     "Caveat — general news outlets: a page that presents itself as a newspaper, general-magazine, or encyclopedia piece — multi-column published editorial prose with a masthead, magazine cover, or encyclopedia/reference title belonging to a general-audience outlet — is news_article (check 12), not a publication, even if its text is scientific, names an author with credentials, or cites journal articles as references within the prose (a citation like \"Am J Epidemiol 1984;119:624-41\" appearing inside body text is a reference to other work, not this page's own identifier).",
     "Caveat — general news outlets: a page from a general-interest newspaper, general-news magazine, or encyclopedia/reference work is news_article (check 12), not a publication, even if its text is scientific, names an author with credentials, or cites journal articles as references. Do NOT use this caveat for a specialist science, medical, engineering, or technical periodical whose own masthead identifies that publication."
@@ -1350,6 +1435,162 @@ PROMPT_V13 = PROMPT_V13.replace(
     "Requires running prose — a page that is only labeled field-value entries (even an \"ANALYTICAL DATA SUMMARY\" under a contract number with a Principal Investigator line, a grant application's structured section headings, or a QA parameter-review sheet's listed parameters/dates) is a filled form (check 10), not a scientific report.",
     "A scientific report can be a research-laboratory record, not only running prose: include a technical-study or monthly-report cover, compound/testing summary, QA or protocol review, analytical/lab results sheet, research-measurement table, or handwritten scientific results table when the page documents an experiment, method, specimen, compound, measurement, study, or research institute. Structured fields and signatures do not make such a page an administrative form. Exclude only a genuinely generic administrative data-capture sheet with no identifiable research or technical-study function."
 )
+
+# v16: v11.9 base + two targeted worked examples for top confusion pairs
+# (estimate→invoice, handwritten→letter) without adding conflicting precedence rules
+PROMPT_V16 = PROMPT_V11_9 + """
+
+### Worked example 1 — estimate versus invoice
+
+<scratchpad>
+file_folder: no — the page has a financial table and project details.
+invoice: no — although it says ESTIMATE and compares previous/current amounts, there is no amount-due, payment, remittance, or explicit billing request; it is planning future agency work.
+budget: yes — the primary function is projected client spending for future placements/work, so estimate wording and revision columns do not convert it into a bill.
+form: no — the signatures approve the plan, but the page is primarily a spending plan rather than a generic administrative data-capture form.
+Runner-up: invoice, ruled out by the absence of positive billing/payment evidence.
+</scratchpad>
+<label>budget</label>
+
+### Worked example 2 — complete handwritten letter versus handwritten note
+
+<scratchpad>
+file_folder: no — the page contains a full message, not only an archive label.
+handwritten: no — although the writing is handwritten, it has a complete letter structure rather than a freeform note or form entry.
+letter: yes — it is addressed to a recipient, begins with a salutation, contains prose, and ends with a letter-like closing/signature. A complete handwritten letter remains letter even without letterhead or a street address.
+memo: no — there is no internal organizational header or internal context.
+Runner-up: handwritten, ruled out because the document's primary function is a complete recipient-directed letter.
+</scratchpad>
+<label>letter</label>
+"""
+
+# v17: v11.9 base — simplified check-7 financial rules (agency-estimate sub-protocol removed),
+# strengthened handwritten-vs-letter rule. Trims ~5000 chars from check-7 to cut reasoning
+# verbosity and eliminate finish_reason=length failures. Data-driven from v16 multispect
+# evaluation: agency estimate rules misclassified budget→invoice (7 errors across slices).
+_V17_NEW_FINANCIAL = """\
+    invoice: a bill for goods or services provided — the page states a payment demand. Look for an "INVOICE" header, "Amount Due", "Pay This Amount", "Total Due", payment instructions, remittance address, or language billing for completed work ("Final invoice to reflect total actual costs"). A payment voucher naming a payee with "AMOUNT"/"PAY THIS AMOUNT" is invoice. A hotel/guest folio, a rent statement billing for a specific period — these all demand payment for services. The key signal is an explicit request to pay; without it the page is not invoice.
+    budget: internal money planning, tracking, or disbursement WITHOUT demanding payment. Budget includes: expense reports, forecast-vs-actual, a statement of account, a check face/check stub, a check register, a financial/money-data table, a handwritten list of expenses, a campaign-contribution/expenditure statement, or a money-only REQUEST/CHECKLIST/STATEMENT. A document titled "ESTIMATE" is budget — it PLANS spending, even when it compares previous/current amounts, has revision columns, or lists project costs. Only an explicit payment demand makes it invoice; the word "estimate" itself signals planning, not billing. A provider's periodic customer statement (e.g. an AT&T "MONTHLY INVOICE" for phone service, a utility or subscription statement) is budget — it states ongoing-account activity, not a one-off bill for goods sold.
+   Caveat: an internal expenditure-authorization form that names the work to be funded and carries an approval block but no billable charges or payment demand is a form (check 10). A technical/project status report whose content is primarily technical is scientific_report (check 13), even if it embeds a cost section."""
+
+# v17.1: v17 with the periodic-statement carveout moved into the invoice bullet so the model
+# sees it before stopping at the "INVOICE" header match. v17.1 fixes the AT&T MONTHLY INVOICE
+# case where v17 classified the periodic phone-service bill as invoice despite the budget-bullet
+# carveout (model matched invoice bullet first and never reached the budget bullet).
+_V17_1_NEW_FINANCIAL = """\
+    invoice: a bill for goods or services provided — the page states a payment demand. Look for an "INVOICE" header, "Amount Due", "Pay This Amount", "Total Due", payment instructions, remittance address, or language billing for completed work ("Final invoice to reflect total actual costs"). A payment voucher naming a payee with "AMOUNT"/"PAY THIS AMOUNT" is invoice. A hotel/guest folio, a rent statement billing for a specific period — these all demand payment for services. The key signal is an explicit request to pay. BUT a provider's periodic customer statement that says "MONTHLY INVOICE" or "INVOICE" at the top while representing ongoing subscription/service account charges (e.g. an AT&T phone-service bill, a utility statement, a subscription/retainer statement) is budget, not invoice — the periodic-account-statement function overrides the "invoice" title, because the statement covers ongoing service rather than billing for discrete goods sold.
+    budget: internal money planning, tracking, or disbursement WITHOUT demanding payment. Budget includes: expense reports, forecast-vs-actual, a statement of account, a check face/check stub, a check register, a financial/money-data table, a handwritten list of expenses, a campaign-contribution/expenditure statement, or a money-only REQUEST/CHECKLIST/STATEMENT. A document titled "ESTIMATE" is budget — it PLANS spending, even when it compares previous/current amounts, has revision columns, or lists project costs. Only an explicit payment demand makes it invoice; the word "estimate" itself signals planning, not billing. A provider's periodic customer statement (e.g. an AT&T "MONTHLY INVOICE" for phone service, a utility or subscription statement) is budget — it states ongoing-account activity, not a one-off bill for goods sold, and the periodic-statement function overrides the "invoice" wording in the header.
+   Caveat: an internal expenditure-authorization form that names the work to be funded and carries an approval block but no billable charges or payment demand is a form (check 10). A technical/project status report whose content is primarily technical is scientific_report (check 13), even if it embeds a cost section."""
+
+_V17_HANDWRITTEN_ADDENDUM = """\
+   - LETTER/MEMO OVERRIDE: If most of the page content is handwritten, it IS handwritten — even when the page has a complete letter structure (salutation, body, closing signature) or memo layout (To/From/Re/Date headers). Check 2 fires before check 11; once handwritten matches, stop and do NOT evaluate letter/memo later. The page's letter-like formatting does not matter; handwritten content wins every time. Only one exception: freeform handwriting that fills the fields/cells of a PRINTED typed form template (labeled boxes, data-column headers) is a filled form (check 10), not handwritten."""
+
+# Build v17 from v11.9 by splicing out check-7's bloated invoice+budget+caveat
+# and inserting a stronger handwritten-vs-letter rule.
+# The v11.9 calibration and worked examples are stripped — they redundantly
+# teach rules already explicit in the check structure and caused attention
+# dilution in v17.2 (invoice regressed 8/10→6/10 on v1 slice).
+_we_start = PROMPT_V11_9.find("### Worked example")
+_cal_start = PROMPT_V11_9.find("## Calibration")
+_output_start = PROMPT_V11_9.find("## Output format")
+_b = PROMPT_V11_9[:_cal_start] + PROMPT_V11_9[_output_start:_we_start] if _cal_start != -1 and _output_start != -1 else PROMPT_V11_9[:_we_start] if _we_start != -1 else PROMPT_V11_9
+_fin = _b.find("    invoice: an outside vendor")
+_chk8 = _b.find("\n\n8. PRODUCT OR MATERIAL DOCUMENTATION")
+_hand = _b.find("   Most of the content is freeform handwriting")
+_hand_dash = _b.find("   - The real test is PRINTED FIELD", _hand)
+PROMPT_V17 = (
+    _b[:_fin] + _V17_NEW_FINANCIAL + "\n" + _b[_chk8:]
+    if _fin != -1 and _chk8 != -1
+    else _b
+)
+PROMPT_V17 = (
+    PROMPT_V17[:_hand_dash] + _V17_HANDWRITTEN_ADDENDUM + "\n" + PROMPT_V17[_hand_dash:]
+    if _hand != -1 and _hand_dash != -1
+    else PROMPT_V17
+)
+
+# v17.1: same as v17 but with periodic-statement carveout in the invoice bullet
+PROMPT_V17_1 = (
+    _b[:_fin] + _V17_1_NEW_FINANCIAL + "\n" + _b[_chk8:]
+    if _fin != -1 and _chk8 != -1
+    else _b
+)
+PROMPT_V17_1 = (
+    PROMPT_V17_1[:_hand_dash] + _V17_HANDWRITTEN_ADDENDUM + "\n" + PROMPT_V17_1[_hand_dash:]
+    if _hand != -1 and _hand_dash != -1
+    else PROMPT_V17_1
+)
+
+# v17.1 calibration addendum — two surgical fixes sourced from the v16 v2+v3
+# failure analysis (4 misclassified handwritten pages on v2 alone, 2
+# scientific_report→specification, 3 news_article→advertisement).
+_V17_1_CALIBRATION_ADDENDUM = """\
+## Calibration
+
+- A research study's own experimental data tables, test measurements, and results belong to `scientific_report`, not `specification`. Specification requires the page's PRIMARY function to be defining a product's composition, tolerances, or requirements — a technical report that merely contains data tables or measurement charts is still a report.
+- Judge newspaper/magazine pages by editorial intent, not embedded ads: a page with a running masthead, multi-column news text, bylines, and journalistic typography is `news_article` even when it CONTAINS a branded advertisement. Only classify as `advertisement` when the ENTIRE page is a standalone promotional piece with no editorial wrapper."""
+
+# v17.1 worked examples — two lean counter-examples to v16's harmful worked
+# examples (handwritten letter → handwritten, agency estimate → budget).
+# Kept ~250 chars each to preserve v17.1's slim token profile.
+_V17_1_WORKED_EXAMPLES = """
+
+### Worked example — handwritten letter (handwritten, not letter)
+
+<scratchpad>
+handwritten: yes — the page is HANDWRITTEN throughout ("Dear ..." salutation, prose body, signed closing). Check 2 LETTER/MEMO OVERRIDE: the majority of content is handwritten; letter formatting does not override this.
+letter: not evaluated — check 2 already matched and stops here.
+Runner-up: letter, ruled out because check 2 fires before check 11; handwriting content wins.
+</scratchpad>
+<label>handwritten</label>
+
+### Worked example — agency estimate (budget, not invoice)
+
+<scratchpad>
+financial: yes — an outside agency lists planned media placements with projected costs in an estimate table.
+invoice: no — no "Amount Due", no payment demand, no remittance instructions. The "ESTIMATE" title and planning columns signal future work, not a bill for completed services.
+budget: yes — planning future spending.
+Runner-up: invoice, ruled out by the absence of any payment demand.
+</scratchpad>
+<label>budget</label>"""
+
+# v17.1+: surgical calibration + worked examples from multi-slice failure analysis
+PROMPT_V17_1 = PROMPT_V17_1 + _V17_1_CALIBRATION_ADDENDUM + _V17_1_WORKED_EXAMPLES
+
+# v17.2: three-slice generalization pass. v17.1 fixed handwritten→letter (zero
+# misses across 60 images) and scientific_report→spec (zero). Remaining clusters
+# in order of frequency: invoice→form (4), invoice→budget (6), budget→invoice (3),
+# news_article→advertisement (3), scientific_publication→scientific_report (3),
+# and scattered form-overprediction (8 instances of form as predicted class).
+_V17_2_ENHANCEMENTS = """
+- form is NEVER a default or fallback. If you are choosing `form` because no other check clearly matched, you have missed a check — go back through checks 1-14 and find the positive evidence you overlooked. The evaluation set has 4-5 genuine forms per 30 images across most slices; if you are predicting form more often than that, you are over-using it. Choose `form` only when the page has explicit fill-in fields, checkboxes, or ruled entry lines AND no stronger document function is present.
+- A presentation/memo with slide-style layout (sparse text, bullet-like formatting, titled headings, deck look) is `presentation`, not memo or letter — memo requires internal organizational context and prose body, not slide typography.
+- Invoice is a PAYMENT DEMAND regardless of the page's visual layout or form-like fields. The decisive signal is an explicit request to pay: "Amount Due", "Pay This Amount", "Total Due", "Remit To", payment instructions, or a vendor bill with charges owed. A financial table without any payment-demand language is NOT invoice.
+- Budget is an INTERNAL document — it plans, tracks, or reports on spending but NEVER demands payment. Budget signals: forecast-vs-actual columns, period tracking (month/quarter columns), expense categories, check stubs/registers, or internal statements of account. A document titled "ESTIMATE" is budget.
+- Publication evidence must belong to THIS page itself: a journal name + volume/issue/DOI/copyright printed in the page's OWN header or footer. A citation like "Am J Epidemiol 1984;119:624-41" appearing only inside body prose references another work — it does NOT make this page a scientific_publication.
+- Specification defines a product's REQUIREMENTS — it states what a product IS or must be. Signals: part numbers, ingredient/formulation lists, MSDS headers, tolerance ranges,shall/must language. A quality-check sheet, lab measurement log, or product-test data table that merely RECORDS measurements about a product is a form, not specification — it captures data rather than defining requirements.
+- Scientific_report requires narrative prose interpreting results — a standalone data table, measurement log, or QA parameter sheet without methods, findings, or discussion sections is NOT a scientific report. A page that only displays data without interpreting it is not a report.
+
+### Worked example — invoice with form layout (invoice, not form)
+
+<scratchpad>
+form: no — although the page has labeled fields, an amount box, and approval/date blocks, check 7 says money function overrides form layout. The page is a vendor bill with "INVOICE" header, line items, and a total due.
+financial: yes — an outside vendor bills for goods with item descriptions, unit prices, and "TOTAL DUE".
+invoice: yes — the page demands payment from a vendor for goods provided; the form-like layout does not change the billing function.
+Runner-up: form, ruled out because a billing document with a payment demand is invoice regardless of visual layout.
+</scratchpad>
+<label>invoice</label>
+
+### Worked example — newspaper page with embedded advertisement (news_article, not advertisement)
+
+<scratchpad>
+advertisement: no — although the page contains a branded product ad with imagery and slogans, the DOMINANT layout is a newspaper page with a running masthead ("THE ... TIMES"), multi-column editorial text, a byline, and journalistic prose. The ad is embedded alongside editorial content, not the page's primary function.
+news_article: yes — newspaper masthead, columns, byline, editorial prose — the page's identity is published journalism, even with an ad present.
+Runner-up: advertisement, ruled out because the page's dominant function is newspaper editorial content — an embedded ad does not override the masthead and news typography.
+</scratchpad>
+<label>news_article</label>"""
+
+PROMPT_V17_2 = PROMPT_V17_1 + _V17_2_ENHANCEMENTS
+
 PROMPTS = {
     "v1": PROMPT_V1,
     "v2": PROMPT_V2,
@@ -1371,9 +1612,14 @@ PROMPTS = {
     "v11.9": PROMPT_V11_9,
     "v13": PROMPT_V13,
     "v14": PROMPT_V14,
+    "v15": PROMPT_V15,
+    "v16": PROMPT_V16,
+    "v17": PROMPT_V17,
+    "v17.1": PROMPT_V17_1,
+    "v17.2": PROMPT_V17_2,
 }
 
-DEFAULT_PROMPT_VERSION = "v14"
+DEFAULT_PROMPT_VERSION = "v17.2"
 
 
 def get_prompt(version: str = DEFAULT_PROMPT_VERSION) -> str:

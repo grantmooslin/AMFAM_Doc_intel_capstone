@@ -7,7 +7,7 @@ A Python toolkit for downloading the RVL-CDIP document image dataset, preprocess
 **Core library (`src/`)**
 - `document_processor.py` — Convert TIFF/PDF pages to 300 DPI grayscale PNGs and run OCR with bounding boxes.
 - `openrouter_classifier.py` — Send a document image to an OpenRouter vision model for one of 16 class predictions.
-- `prompts.py` — Versioned classification prompts (v1 → v14) with disambiguation rules.
+- `prompts.py` — Versioned classification prompts (v1 → v15) with disambiguation rules.
 - `constants.py`, `image_utils.py`, `openrouter_utils.py`, `env_utils.py`, `cli_utils.py` — Shared helpers.
 
 **Scripts (`scripts/`)**

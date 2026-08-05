@@ -31,6 +31,18 @@ Two env files are used (both gitignored; templates committed):
 - System binaries for the document pipeline: Tesseract OCR and Poppler (`pdf2image`).
 - The `.env` / `braintrust.env` files populated with your keys.
 
+## Fresh v15 validation slices
+
+Create two disjoint 160-image Hugging Face mirror slices and upload them to the
+`AMFAM v2` Braintrust project as `fixed_size_sampled_v3` and
+`fixed_size_sampled_v4`:
+
+```bash
+python scripts/braintrust/create_braintrust_160_v3_v4_datasets.py
+```
+
+Use `--dry-run` to build and validate the samples without writing Braintrust.
+
 ## Notes
 
 - Several scripts keep example configuration in a `main()` block with hardcoded dev-machine paths

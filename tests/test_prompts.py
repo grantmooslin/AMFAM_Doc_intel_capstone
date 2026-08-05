@@ -6,7 +6,7 @@ from src.openrouter_classifier import clean_prediction
 
 class PromptTests(unittest.TestCase):
     def test_v14_is_registered_and_default(self):
-        self.assertEqual(DEFAULT_PROMPT_VERSION, "v14")
+        self.assertEqual(DEFAULT_PROMPT_VERSION, "v17.2")
         self.assertIn("v14", list_prompt_versions())
         prompt = get_prompt("v14")
         self.assertIn("v14 production precedence", prompt)

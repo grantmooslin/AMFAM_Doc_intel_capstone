@@ -83,6 +83,7 @@ def fetch_experiment_rows(
     experiment_id: str,
     api_base: str = "https://api.braintrust.dev/v1",
     max_retries: int = EXPERIMENT_FETCH_RETRIES,
+    timeout: int = 300,
 ) -> list[dict]:
     """Fetch every event (span) of an experiment, retrying on rate limits."""
     headers = {"Authorization": f"Bearer {api_key}"}
@@ -98,7 +99,7 @@ def fetch_experiment_rows(
                     f"{_v1_api_base(api_base)}/experiment/{experiment_id}/fetch",
                     headers=headers,
                     json=body,
-                    timeout=120,
+                    timeout=timeout,
                 )
                 resp.raise_for_status()
                 break
