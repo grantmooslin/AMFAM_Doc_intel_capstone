@@ -17,12 +17,16 @@ Usage:
     python scripts/braintrust/braintrust_openrouter_input.py --experiment-name qwen3.7-flash_v4_reasoning
 """
 
+from __future__ import annotations
+
 import argparse
 import os
+import random
 import re
 import sys
+import threading
 import time
-from collections import Counter
+from collections import Counter, defaultdict, deque
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
@@ -35,7 +39,8 @@ from src.braintrust_utils import load_braintrust_dataset
 from src.env_utils import require_env
 from src.evaluation import ManifestStore, dataset_fingerprint, validate_dataset
 from src.image_utils import encode_image_base64
-from src.openrouter_classifier import VALID_CLASSES, clean_prediction
+from src.notify import play_failure, play_success
+from src.openrouter_classifier import VALID_CLASSES, clean_prediction, extract_runner_up
 from src.openrouter_utils import OPENROUTER_BASE_URL, build_vision_messages
 from src.prompts import get_prompt, DEFAULT_PROMPT_VERSION
 
@@ -47,6 +52,148 @@ DEFAULT_MAX_TOKENS = 4096  # Enough for reasoning trace + scratchpad + final lab
 MAX_TRIES = 3  # Retry transient provider failures (502s, token caps, empty responses)
 ERROR_PREFIX = "ERROR: "  # Task output sentinel so failed rows get tracked scores
 MAX_TOKENS_CAP = 32768  # Upper bound when growing max_tokens on "length" finish reasons (v17 fix: 16→32K)
+
+# Resilience tuning (429 key failover / upstream rate limits / content filters).
+RATE_LIMIT_BACKOFF = (5, 15, 45)  # Seconds between retries on 429 (upstream shared-pool throttling)
+TRANSIENT_BACKOFF = (2, 4)  # Seconds between retries on transient/network errors
+QUOTA_HINTS = ("limit", "quota", "balance", "credit")
+CONTENT_FILTER_HINTS = ("inappropriate content", "data_inspection_failed", "content filter")
+
+
+def _backoff_for(schedule: tuple[int, ...], attempt: int) -> float:
+    """Return the backoff delay for ``attempt`` using the given schedule."""
+    return float(schedule[min(attempt, len(schedule) - 1)])
+
+
+def _response_status_code(exc: Exception) -> int | None:
+    response = getattr(exc, "response", None)
+    if response is not None:
+        status = getattr(response, "status_code", None)
+        if isinstance(status, int):
+            return status
+    return None
+
+
+def _is_rate_limit(exc: Exception) -> bool:
+    """429 or an upstream "rate limit" message (OpenRouter/Alibaba shared pool)."""
+    msg = str(exc).lower()
+    return _response_status_code(exc) == 429 or "rate limit" in msg or "rate-limited" in msg
+
+
+def _is_quota_error(exc: Exception) -> bool:
+    """403/401 key or credit limits (e.g. weekly key limit exceeded)."""
+    code = _response_status_code(exc)
+    if code not in (401, 403) and "Error code: 403" not in str(exc):
+        return False
+    return any(hint in str(exc).lower() for hint in QUOTA_HINTS)
+
+
+def _is_content_filter(exc: Exception) -> bool:
+    """Provider-side safety moderation rejecting the input image."""
+    msg = str(exc).lower()
+    return any(hint in msg for hint in CONTENT_FILTER_HINTS)
+
+
+def _retry_after_seconds(exc: Exception) -> float | None:
+    """Honor a Retry-After header from the provider, if present."""
+    response = getattr(exc, "response", None)
+    if response is not None:
+        headers = getattr(response, "headers", None) or {}
+        retry_after = headers.get("retry-after")
+        if retry_after:
+            try:
+                return float(retry_after)
+            except (TypeError, ValueError):
+                pass
+    return None
+
+
+def _build_openai_client(api_key: str) -> "OpenAI":
+    """Create the OpenRouter-backed OpenAI client with Braintrust logging."""
+    return braintrust.wrap_openai(
+        OpenAI(base_url=OPENROUTER_BASE_URL, api_key=api_key, timeout=300)
+    )
+
+
+def _candidate_keys(primary: str) -> list[str]:
+    """Return the OpenRouter keys to try: the configured key first, then the
+    alternate research-funding key (if set and different) for failover."""
+    keys = [primary]
+    alternate = os.environ.get("RESEARCH_FUNDING_API_KEY")
+    if alternate and alternate not in keys:
+        keys.append(alternate)
+    return keys
+
+
+class AdaptiveThrottle:
+    """Reduce request rate after a burst of upstream 429s.
+
+    OpenRouter's shared provider pool throttles qwen models when an eval runs at
+    8-way concurrency. After two 429s inside a short window, subsequent requests
+    pause for a growing cooldown so the shared pool recovers.
+    """
+
+    def __init__(self, window_seconds: float = 30.0, min_cooldown: float = 2.0,
+                 max_cooldown: float = 30.0) -> None:
+        self.window = window_seconds
+        self.min_cooldown = min_cooldown
+        self.max_cooldown = max_cooldown
+        self._recent_429: deque[float] = deque()
+        self._lock = threading.Lock()
+
+    def record_429(self) -> None:
+        with self._lock:
+            self._recent_429.append(time.monotonic())
+            self._trim()
+
+    def _trim(self) -> None:
+        cutoff = time.monotonic() - self.window
+        while self._recent_429 and self._recent_429[0] < cutoff:
+            self._recent_429.popleft()
+
+    def wait_if_throttled(self) -> None:
+        with self._lock:
+            self._trim()
+            n = len(self._recent_429)
+            if n < 2:
+                return
+            cooldown = min(self.max_cooldown, self.min_cooldown * (2 ** (n - 1)))
+        time.sleep(cooldown)
+
+
+def _build_extra_body(model: str, effort: str | None) -> dict:
+    """Build the request extra body based on model capabilities."""
+    extra_body: dict = {}
+    if "kimi" in model.lower():
+        extra_body = {"reasoning": {"enabled": True, "effort": effort or "xhigh"}}
+    elif "gemini" in model.lower():
+        extra_body = {"reasoning": {"effort": effort or "max"}, "include_reasoning": True}
+    elif "qwen" in model.lower():
+        extra_body = {
+            "reasoning": {"enabled": True, "effort": effort or "high"},
+            "include_reasoning": True,
+        }
+    return extra_body
+
+
+def _extract_reasoning(message) -> str:
+    if hasattr(message, "reasoning_content") and message.reasoning_content:
+        return message.reasoning_content
+    if hasattr(message, "reasoning") and message.reasoning:
+        return message.reasoning
+    return ""
+
+
+def _safe_span_log(**kwargs) -> None:
+    """Log Braintrust span metadata without letting an outage fail the row.
+
+    A Braintrust API hiccup must never turn a successful classification into a
+    failed row; the manifest is the durable record, not the span log.
+    """
+    try:
+        braintrust.current_span().log(**kwargs)
+    except Exception as exc:  # noqa: BLE001 - logging must not raise
+        print(f"WARNING: could not log span metadata to Braintrust: {exc}", file=sys.stderr)
 
 _CONFIG = load_braintrust_config()
 PROJECT_NAME = _CONFIG.project_name
@@ -97,6 +244,27 @@ def extract_class_from_filename(filename: str) -> str:
     return "unknown"
 
 
+def sample_balanced(dataset: list[dict], samples_per_class: int, seed: int = 42) -> list[dict]:
+    """Deterministically subsample ``samples_per_class`` rows per class.
+
+    Returns a class-balanced subset of the dataset (each class contributes the
+    same number of rows). Preserves unique filenames so ``validate_dataset``
+    still passes.
+    """
+    by_class: dict[str, list[dict]] = defaultdict(list)
+    for row in dataset:
+        by_class[row["expected"]].append(row)
+
+    rng = random.Random(seed)
+    sampled: list[dict] = []
+    for cls in sorted(by_class):
+        available = by_class[cls]
+        n = min(samples_per_class, len(available))
+        sampled.extend(rng.sample(available, n))
+    rng.shuffle(sampled)
+    return sampled
+
+
 def load_dataset_images(dataset_dir: Path) -> list[dict]:
     """
     Load all images from a local fixed-size dataset directory.
@@ -127,6 +295,31 @@ def extract_prediction(text: str) -> str:
     return clean_prediction(text)
 
 
+def near_miss_score(output: str, expected: str, runner_up: str) -> float:
+    """Score 1.0 if the model's prediction was wrong AND its runner-up label
+    (second choice) was the correct answer — a near miss. Else 0.0."""
+    if output == expected:
+        return 0.0
+    return 1.0 if runner_up == expected else 0.0
+
+
+def _response_cost(response) -> float:
+    """Actual billed USD cost for a completion, from OpenRouter's usage.cost.
+
+    Falls back to the standard OpenAI Usage fields when ``cost`` is absent.
+    """
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return 0.0
+    cost = getattr(usage, "cost", None)
+    if cost is None and hasattr(usage, "model_extra"):
+        cost = (usage.model_extra or {}).get("cost")
+    try:
+        return float(cost or 0.0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
 # ---------------------------------------------------------------------------
 # Braintrust Eval
 # ---------------------------------------------------------------------------
@@ -143,6 +336,8 @@ def run_eval(
     dataset_name: str = DEFAULT_DATASET,
     manifest_path: str | Path | None = None,
     max_concurrency: int = 8,
+    sound: bool = True,
+    fallback_model: str | None = None,
 ) -> None:
     """Run the classification prompt against the dataset and log to Braintrust."""
     validate_dataset(dataset)
@@ -192,19 +387,25 @@ def run_eval(
         )
         manifest.initialize()
 
-    # Wrap OpenAI client pointed at OpenRouter with Braintrust logging.
-    # Timeout prevents a stalled provider connection from hanging the run
-    # forever; the retry loop above treats timeouts as transient failures.
-    client = braintrust.wrap_openai(
-        OpenAI(
-            base_url=OPENROUTER_BASE_URL,
-            api_key=openrouter_key,
-            timeout=300,
-        )
-    )
+    # Wrap OpenAI client pointed at OpenRouter with Braintrust logging. The
+    # client lives in a mutable box so a key-quota 403 can fail over to the
+    # alternate key without rebuilding the eval. Timeout prevents a stalled
+    # provider connection from hanging the run forever.
+    keys = _candidate_keys(openrouter_key)
+    client_box: dict = {"client": _build_openai_client(keys[0])}
+    throttle = AdaptiveThrottle()
+    fallback_client_box: dict | None = None
+    if fallback_model:
+        fallback_client_box = {"client": _build_openai_client(keys[0])}
 
     images_by_index = {i: d["image_b64"] for i, d in enumerate(dataset)}
     expected_by_index = {i: d["expected"] for i, d in enumerate(dataset)}
+
+    # Per-row actual cost: {index: billed USD from OpenRouter's usage.cost}.
+    # Written by classify_document after the successful completion; read by the
+    # cost Braintrust scorer. Single writer per key; the eval awaits each task
+    # before running its scorers, so reads always see the completed write.
+    cost_by_index: dict[int, float] = {}
 
     @braintrust.traced
     def classify_document(input_data: dict) -> str:
@@ -221,34 +422,24 @@ def run_eval(
                 )
                 return cached["predicted"]
 
-        # Build extra body based on model capabilities. Defaults aim for the
-        # maximum reasoning the model family exposes; --reasoning-effort can
-        # override (e.g. "medium" for a lighter run). qwen3.x runs at "high"
-        # as the sweet spot for accuracy vs token burn.
-        effort = reasoning_effort
-        extra_body = {}
-        if "kimi" in model.lower():
-            extra_body = {"reasoning": {"enabled": True, "effort": effort or "xhigh"}}
-        elif "gemini" in model.lower():
-            extra_body = {"reasoning": {"effort": effort or "max"}, "include_reasoning": True}
-        elif "qwen" in model.lower():
-            # Qwen3.x are hybrid reasoning models; force thinking on and ask
-            # OpenRouter to include the reasoning trace so we can log it.
-            extra_body = {
-                "reasoning": {"enabled": True, "effort": effort or "high"},
-                "include_reasoning": True,
-            }
-        
-        # Transient provider failures (Alibaba 502 "inappropriate content", token
-        # caps, empty responses) return no usable content. Retry with backoff;
-        # grow max_tokens when the model capped out mid-reasoning.
+        extra_body = _build_extra_body(model, reasoning_effort)
+
+        # Retry with per-error backoff; grow max_tokens on capouts; fail over to
+        # the alternate OpenRouter key on quota 403s; throttle on upstream 429s.
+        # Bounded by MAX_TRIES attempts per configured key.
         tokens = max_tokens
         last_error = None
         attempts = 0
-        for attempt in range(MAX_TRIES):
-            attempts = attempt + 1
+        raw = ""
+        finish_reason = None
+        reasoning_text = ""
+        predicted = ""
+        key_switched = False
+        for attempt in range(1, MAX_TRIES * max(1, len(keys)) + 1):
+            attempts = attempt
+            throttle.wait_if_throttled()
             try:
-                response = client.chat.completions.create(
+                response = client_box["client"].chat.completions.create(
                     model=model,
                     messages=build_vision_messages(classification_prompt, image_b64),
                     max_tokens=tokens,
@@ -257,6 +448,7 @@ def run_eval(
                 )
                 raw = response.choices[0].message.content or ""
                 finish_reason = response.choices[0].finish_reason
+                reasoning_text = _extract_reasoning(response.choices[0].message)
 
                 # Try to extract a prediction from whatever text the model
                 # returned. Truncated (finish_reason=length) and provider-errored
@@ -278,80 +470,122 @@ def run_eval(
                         f"model hit max_tokens={old_tokens} (finish_reason=length); retrying with {tokens}"
                     )
                 # Valid finish_reason but no recognizable class in the text.
-                # Fall through so the post-retry handling records it as
-                # status="empty" rather than wasting retries on the same prompt.
+                # Stop retrying so the post-retry handling records status="empty".
                 break
             except Exception as e:  # noqa: BLE001 - retry transient provider errors
                 last_error = e
-                if attempt < MAX_TRIES - 1:
-                    time.sleep(2 * (attempt + 1))
-        else:
-            if manifest:
-                manifest.append({
-                    "filename": filename,
-                    "expected": expected,
-                    "status": "error",
-                    "predicted": "",
-                    "attempts": attempts,
-                    "error": str(last_error),
-                })
-            msg = f"{ERROR_PREFIX}{filename}: {last_error}"
-            print(msg, file=sys.stderr)
-            braintrust.current_span().log(
-                metadata={"filename": filename, "error": str(last_error), "attempts": attempts}
-            )
-            return msg
+                if _is_quota_error(e):
+                    # OpenRouter key/credit limit: fail over to the next key once.
+                    try:
+                        current = keys.index(client_box["client"].api_key)
+                    except ValueError:
+                        current = 0
+                    if current + 1 < len(keys):
+                        client_box["client"] = _build_openai_client(keys[current + 1])
+                        key_switched = True
+                        print(
+                            f"WARN: OpenRouter key quota/limit; failing over to alternate key for {filename}",
+                            file=sys.stderr,
+                        )
+                        continue
+                    print(f"ERROR: all OpenRouter keys exhausted for {filename}", file=sys.stderr)
+                    break
+                if _is_rate_limit(e):
+                    throttle.record_429()
+                    time.sleep(_retry_after_seconds(e) or _backoff_for(RATE_LIMIT_BACKOFF, attempts))
+                else:
+                    time.sleep(_backoff_for(TRANSIENT_BACKOFF, attempts))
 
-        msg = response.choices[0].message
-        reasoning_text = ""
-        if hasattr(msg, "reasoning_content") and msg.reasoning_content:
-            reasoning_text = msg.reasoning_content
-        elif hasattr(msg, "reasoning") and msg.reasoning:
-            reasoning_text = msg.reasoning
+        # Fallback-model salvage: rows that fail primary retries (content
+        # filters, empty responses) get one attempt through --fallback-model.
+        used_fallback = False
+        if not predicted and fallback_model and fallback_client_box:
+            try:
+                fallback_response = fallback_client_box["client"].chat.completions.create(
+                    model=fallback_model,
+                    messages=build_vision_messages(classification_prompt, image_b64),
+                    max_tokens=min(tokens, MAX_TOKENS_CAP),
+                    temperature=temperature,
+                    extra_body=_build_extra_body(fallback_model, reasoning_effort),
+                )
+                fallback_raw = fallback_response.choices[0].message.content or ""
+                fallback_pred = extract_prediction(fallback_raw)
+                if fallback_pred:
+                    predicted = fallback_pred
+                    raw = fallback_raw
+                    finish_reason = fallback_response.choices[0].finish_reason
+                    reasoning_text = _extract_reasoning(fallback_response.choices[0].message)
+                    used_fallback = True
+            except Exception as e:  # noqa: BLE001 - fallback must never raise
+                print(f"WARNING: fallback model failed for {filename}: {e}", file=sys.stderr)
 
-        # V4 wraps the final label in <label>...</label>; parse it first so the
-        # scratchpad prose never leaks a wrong class into the prediction.
-        predicted = extract_prediction(raw)
+        # Near-miss tracking: capture the label the model named as its runner-up
+        # in the reasoning trace (its second choice). Local scoring reads this
+        # to flag rows where the correct answer was the runner-up.
+        runner_up = ""
+        row_cost = 0.0
+        if predicted:
+            runner_up = extract_runner_up(reasoning_text or raw)
+            last_response = fallback_response if used_fallback else response
+            row_cost = _response_cost(last_response)
+            cost_by_index[input_data["index"]] = row_cost
 
         if not predicted:
+            status = "error" if last_error is not None or raw.strip() == "" else "empty"
+            error_msg = str(last_error) if last_error is not None else "response contained no valid class"
             if manifest:
                 manifest.append({
                     "filename": filename,
                     "expected": expected,
-                    "status": "empty",
+                    "status": status,
+                    "tag": "ERROR!",
                     "predicted": "",
                     "attempts": attempts,
-                    "error": "response contained no valid class",
+                    "error": error_msg,
                 })
-            msg = f"{ERROR_PREFIX}{filename}: response contained no valid class"
+            msg = f"{ERROR_PREFIX}{filename}: {error_msg}"
             print(msg, file=sys.stderr)
-            braintrust.current_span().log(
-                metadata={"filename": filename, "error": "response contained no valid class", "attempts": attempts}
+            _safe_span_log(
+                metadata={
+                    "filename": filename,
+                    "error": error_msg,
+                    "attempts": attempts,
+                    "key_switched": key_switched,
+                }
             )
             return msg
 
         if manifest:
+            tag = "OK" if predicted.strip().lower() == expected.strip().lower() else "MISS!"
             manifest.append({
                 "filename": filename,
                 "expected": expected,
                 "status": "completed",
+                "tag": tag,
                 "predicted": predicted,
                 "attempts": attempts,
                 "error": "",
+                "fallback": used_fallback,
+                "runner_up": runner_up,
+                "cost": row_cost,
             })
 
         # Log metadata for Braintrust UI — includes reasoning trace and prompt.
         # finish_reason is recorded so rows salvaged from truncated/errored
         # responses ("length" / "error") can be identified and audited.
-        braintrust.current_span().log(
+        _safe_span_log(
             metadata={
                 "raw_response": raw,
                 "reasoning": reasoning_text or "(reasoning not exposed by model)",
-                "model": model,
+                "model": fallback_model if used_fallback else model,
                 "prompt_version": prompt_version,
                 "max_tokens": max_tokens,
                 "filename": input_data["filename"],
                 "finish_reason": finish_reason,
+                "fallback": used_fallback,
+                "key_switched": key_switched,
+                "runner_up": runner_up,
+                "cost": row_cost,
             }
         )
 
@@ -361,9 +595,18 @@ def run_eval(
         """Score 1.0 if prediction matches expected class, else 0.0."""
         return 1.0 if output == expected else 0.0
 
-    def failed(output: str, expected: str) -> float:
+    def failure(output: str, expected: str) -> float:
         """Score 1.0 for rows the model failed to classify (error sentinel output)."""
         return 1.0 if output.startswith(ERROR_PREFIX) else 0.0
+
+    def cost(input: dict) -> float:
+        """Actual billed USD cost OpenRouter reported for this row's completion.
+
+        Cost is captured from ``usage.cost`` on the successful response by
+        classify_document. Cached rows (replayed from the manifest without an
+        API call) score 0.0 for this run.
+        """
+        return cost_by_index.get(input.get("index"), 0.0)
 
     result = braintrust.Eval(
         PROJECT_NAME,
@@ -379,7 +622,7 @@ def run_eval(
             for i, d in enumerate(dataset)
         ],
         task=classify_document,
-        scores=[exact_match, failed],
+        scores=[exact_match, failure, cost],
         max_concurrency=max_concurrency,
         reporter=quiet_reporter(),
         project_id=project_id,
@@ -394,17 +637,26 @@ def run_eval(
             "dataset": f"{DEFAULT_DATASET_PROJECT}/{dataset_name}",
             "manifest": str(manifest_path) if manifest_path else None,
         },
-        description=f"{model} | prompt {prompt_version} | reasoning {reasoning_effort or resolved_effort} | temperature {temperature} | exact_match tracked",
+        description=f"{model} | prompt {prompt_version} | reasoning {reasoning_effort or resolved_effort} | temperature {temperature} | Braintrust scorers: exact_match, failure, cost (near-miss scored locally via score_manifest)",
     )
 
-    print_classifications(result)
+    failed_count = print_classifications(result)
+
+    # Catchall completion alert: any failed/errored row means the run finished
+    # with failures (failure motif); otherwise play the success jingle.
+    if sound:
+        if failed_count:
+            play_failure()
+        else:
+            play_success()
 
 
-def print_classifications(result) -> None:
+def print_classifications(result) -> int:
     """Print only the classification outcome: per-image labels and accuracy.
 
     Failed rows (ERROR_PREFIX sentinel output) count as misses in the totals
-    but are not shown in the per-image listing."""
+    but are not shown in the per-image listing. Returns the failed row count.
+    """
     rows = [
         (r.input["filename"], r.expected, r.output, r.expected == r.output)
         for r in result.results
@@ -414,9 +666,9 @@ def print_classifications(result) -> None:
     rows.sort(key=lambda row: (row[1], row[0]))
 
     for filename, expected, predicted, correct in rows:
-        print(f"{'OK ' if correct else 'MISS'}  {expected:<24} {predicted:<24} {filename}")
+        print(f"{'OK ' if correct else 'MISS!'}  {expected:<24} {predicted:<24} {filename}")
     for r in failed_rows:
-        print(f"FAIL {r.expected:<24} {'':<24} {r.input['filename']}")
+        print(f"ERROR! {r.expected:<24} {'':<24} {r.input['filename']}")
 
     per_class = Counter()
     per_class_correct = Counter()
@@ -436,8 +688,9 @@ def print_classifications(result) -> None:
     correct = sum(1 for row in rows if row[3])
     print()
     if failed_rows:
-        print(f"{len(failed_rows)} failed rows counted as misses (tracked as `failed` metric)")
+        print(f"{len(failed_rows)} failed rows counted as misses (tracked as `failure` metric)")
     print(f"exact_match {correct}/{total} ({correct / total:.1%})" if total else "no results")
+    return len(failed_rows)
 
 
 def main() -> None:
@@ -457,6 +710,10 @@ def main() -> None:
                         help="Classify local PNGs instead of a Braintrust dataset")
     parser.add_argument("--limit", type=int, default=None,
                         help="Classify only the first N images")
+    parser.add_argument("--samples-per-class", type=int, default=None,
+                        help="Deterministically subsample N images per class (class-balanced subset)")
+    parser.add_argument("--sample-seed", type=int, default=42,
+                        help="Random seed for --samples-per-class subsampling (default: 42)")
     parser.add_argument("--model", default=DEFAULT_MODEL,
                         help=f"Model to use for classification (default: {DEFAULT_MODEL})")
     parser.add_argument("--prompt-version", default=DEFAULT_PROMPT_VERSION,
@@ -474,6 +731,11 @@ def main() -> None:
                         help="JSONL checkpoint manifest for resuming an interrupted run")
     parser.add_argument("--max-concurrency", type=int, default=8,
                         help="Maximum concurrent API calls (default: 8)")
+    parser.add_argument("--no-sound", action="store_true",
+                        help="Disable the completion notification jingle")
+    parser.add_argument("--fallback-model", default=None,
+                        help="Salvage model for rows that fail all primary retries "
+                             "(e.g. content-filtered images); tried once per failed row")
     args = parser.parse_args()
 
     if args.images_dir:
@@ -485,6 +747,11 @@ def main() -> None:
         dataset = load_braintrust_dataset(
             args.dataset_project, args.dataset, source_key, org_id=ORG_ID, api_base=BRAINTRUST_API_BASE
         )
+
+    if args.samples_per_class:
+        dataset = sample_balanced(dataset, args.samples_per_class, args.sample_seed)
+        per_class = Counter(d["expected"] for d in dataset)
+        print(f"Balanced subsample: {len(dataset)} images ({args.samples_per_class} per class x {len(per_class)} classes)")
 
     if args.limit:
         dataset = dataset[:args.limit]
@@ -507,6 +774,8 @@ def main() -> None:
         dataset_name=args.dataset,
         manifest_path=args.manifest,
         max_concurrency=args.max_concurrency,
+        sound=not args.no_sound,
+        fallback_model=args.fallback_model,
     )
 
 

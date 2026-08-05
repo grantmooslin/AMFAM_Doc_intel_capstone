@@ -112,11 +112,30 @@ python scripts/braintrust/create_misclassification_smoke_dataset.py --experiment
 
 Options: `--env-file` (default `braintrust.env`), `--dataset`, `--experiments`, `--dry-run`.
 
+### `copy_datasets_to_new_env.py`
+
+Preferred way to port image datasets from the previous account to a newly configured Braintrust
+account. Source credentials come from `braintrust.env`/`.env`; the destination (new account) is
+passed explicitly. Attachments are uploaded synchronously with retries (8 attempts) so a row is
+only inserted after its object upload succeeds, then every row is verified by re-downloading it.
+
+```bash
+python scripts/braintrust/copy_datasets_to_new_env.py \
+  --datasets fixed_size_sampled fixed_size_sampled_320 \
+  --dest-project-id <new-project-id> \
+  --dest-project-name AMFAMv2 \
+  --dest-org <new-org-id> \
+  --dest-api-key <new-key>          # or export BRAINTRUST_DEST_API_KEY
+```
+
+Flags: `--source-project`, `--source-api-key` (or `BRAINTRUST_SOURCE_API_KEY`), `--no-verify`,
+`--delete-existing`.
+
 ### `copy_braintrust_dataset.py`
 
 One-off utility: copies a Braintrust dataset from one account to another. Edit the
 `SOURCE_*` / `DEST_*` constants at the top of the file (API keys, project names, dataset names)
-before running.
+before running. Prefer `copy_datasets_to_new_env.py` for repeatable, verified porting.
 
 ```bash
 python scripts/braintrust/copy_braintrust_dataset.py
@@ -138,6 +157,7 @@ All Braintrust scripts read from `braintrust.env` (see `braintrust.env.example`)
 | `BRAINTRUST_API_KEY` | Braintrust API key |
 | `DATA_BRAINTRUST_KEY` | Optional separate key for the source-account dataset |
 | `OPENROUTER_API_KEY` | OpenRouter key used by `braintrust_openrouter_input.py` |
+| `RESEARCH_FUNDING_API_KEY` | Optional separate OpenRouter key for large/vetted runs only; used only when a script explicitly invokes it or as 403-quota failover |
 
 CLI flags on individual scripts override these values per run. Never commit `braintrust.env` —
 it is gitignored.

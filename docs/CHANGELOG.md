@@ -259,6 +259,41 @@ settings in Braintrust experiment metadata for reproducibility.
 
 ---
 
+## v18 — Monte Carlo Exemplar Appendix (Aug 2026, EXPERIMENTAL)
+
+**Data-driven worked examples mined by `monte_carlo_exemplars.py` from the joint
+corpus (4,641 rows / 1,512 images). Four correct traces whose runner-up named
+the decoy label for four of the top confusion pairs.**
+
+- **letter vs memo (letter):** OGILVY & MATHER letterhead, external address,
+  "Dear John:" salutation, "Yours truly," closing → letter, not memo. Targets
+  the #1 confusion pair (letter→memo: 53 corpus errors).
+- **MSDS (specification, not form):** "MATERIAL SAFETY DATA SHEET" with
+  INGREDIENTS / PHYSICAL DATA / FIRE AND EXPLOSION HAZARD DATA sections → check 8
+  precedes check 10. Targets specification→form (41 errors).
+- **PHS 398 biographical sketch (resume, not form):** check 5 explicitly covers
+  PHS 398 templates — biographical content decides, not the form-page label.
+  Targets resume→form (21 errors).
+- **Survey instrument (questionnaire, not form):** YES/NO + open-response
+  questions → check 4 precedes check 10. Targets questionnaire→form (16 errors).
+
+**Rationale:** The Monte Carlo near-miss analysis found 27.7% of current-line
+misses have the correct label as the stated runner-up — the model overrides its
+own best evidence. These four exemplars teach the runner-up-vs-final decision on
+the highest-frequency pairs. Selected pairs cover 131 of 767 corpus errors (17%).
+
+**Status:** EXPERIMENTAL — NOT the default (default remains v17.2). **Verified
+on the exemplar slice (48 images): v18 scored 64.6% vs v17.2's 68.8% (−4.2pp) —
+the exemplar appendix did NOT improve accuracy and slightly hurt.** The
+measurement shows that adding more worked-example text does not fix the
+runner-up-vs-final decision; the follow-up should be a decision-rule change
+(e.g. "never override your own stated runner-up without new evidence"), not more
+exemplar verbosity. v18 is retained for reference but should not be promoted.
+
+**Token profile:** +1,714 chars vs v17.2 (50,678 → 52,392 chars; +3.4%).
+
+---
+
 ## v17.2 — Three-Slice Generalization (Aug 2026)
 
 **Data-driven corrections from v17.1 v1+v2+v3 combined analysis (480 images, 53 failures, ~89% accuracy).**
@@ -278,3 +313,14 @@ v17.1 successfully eliminated handwritten→letter (0 misses across all 3 slices
 - **Worked example — newspaper page with embedded ad → news_article.** Shows a newspaper page with masthead, columns, bylines, and an embedded brand ad being classified as news_article because "the page's dominant function is newspaper editorial content." Addresses the 3 news→ad cases.
 
 **Token profile:** +2,216 chars (+4.6% vs v17.1). v17.2 total: 50,678 chars. 8 worked examples total. Still 1,075 chars lighter than v16.
+
+---
+
+## v0 — Function-Not-Subject Baseline (Aug 2026)
+
+**Minimal baseline prompt (915 chars) with no check structure — added to benchmark the value of the check-driven iterations (v11+).**
+
+- **Content:** Only the "judge by FUNCTION, not subject matter" preamble (commit to the first check with concrete on-page evidence; later checks don't override) plus the 16 exact label strings. No checks, no worked examples, no calibration sentences.
+- **Purpose:** Isolated control to measure how much of the v17.x accuracy comes from prompt engineering vs. the model's prior knowledge of document types.
+
+**Result:** `fixed_size_sampled_480` slice (30/class × 16 = 480), `qwen/qwen3.7-flash`, reasoning high, max_tokens 8192: **332/480 (69.2%)**, 0 failed rows. Memo 100%; advertisement/email/scientific_publication 93%; file_folder/news_article 80%; form 73%; letter 70%; resume/scientific_report 60%; invoice/questionnaire/specification 57%; handwritten 53%; budget 43%; presentation 37%.

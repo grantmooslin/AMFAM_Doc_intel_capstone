@@ -65,3 +65,6 @@ fixed_size_sampled_480/
 # Logs
 *.log
 reports/manifests/
+
+# Quarto site build output
+website/_site/

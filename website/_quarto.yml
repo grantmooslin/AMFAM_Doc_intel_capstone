@@ -1,0 +1,87 @@
+project:
+  type: website
+  output-dir: _site
+  resources:
+    - charts/
+    - assets/
+
+execute:
+  enabled: false
+
+website:
+  title: "RVL-CDIP Document Classifier"
+  description: "16-class document intelligence on RVL-CDIP — OpenRouter vision models, 27 prompt versions, Braintrust evals, and Monte Carlo analysis."
+  search:
+    location: navbar
+    type: overlay
+  navbar:
+    background: primary
+    left:
+      - href: index.qmd
+        text: Overview
+      - text: Methods & Reference
+        menu:
+          - methods/overview.qmd
+          - methods/document-processor.qmd
+          - methods/cli-commands.qmd
+          - methods/classes.qmd
+          - methods/prompt-rules-provenance.qmd
+      - text: Results
+        menu:
+          - results/headline-results.qmd
+          - results/experiment-log.qmd
+          - results/experiment-reports.qmd
+          - results/confusion-matrices.qmd
+          - results/gemini-800-notes.qmd
+          - results/gemini-160-notes.qmd
+      - text: Prompt Evolution
+        menu:
+          - prompts/prompt-changelog.qmd
+          - prompts/enhancements.qmd
+      - text: Cost Analysis
+        menu:
+          - cost/cost-estimation.qmd
+          - cost/cost-projections.qmd
+      - text: Monte Carlo
+        menu:
+          - montecarlo/overview.qmd
+          - montecarlo/prompt-ablation.qmd
+          - montecarlo/ensemble-voting.qmd
+          - montecarlo/routing-abstention.qmd
+          - montecarlo/failure-pipeline.qmd
+          - montecarlo/exemplar-mining.qmd
+          - montecarlo/ale-stopword.qmd
+          - montecarlo/verification.qmd
+          - montecarlo/corpus-summary.qmd
+      - text: Notebooks
+        menu:
+          - notebooks/01_env_setup_and_single_image.ipynb
+          - notebooks/02_balanced_sampling_and_braintrust_upload.ipynb
+          - notebooks/03_watchers_evaluators_full_experiment.ipynb
+      - text: Appendix
+        menu:
+          - appendix/misclassifications.qmd
+    right:
+      - icon: github
+        href: https://github.com/Exios66/AMFAM_capstone
+        aria-label: GitHub repository
+  page-footer:
+    left: "RVL-CDIP Document Classifier — AMFAM capstone project"
+    center:
+      - text: "GitHub"
+        href: https://github.com/Exios66/AMFAM_capstone
+    right: "Built with Quarto"
+
+format:
+  html:
+    theme:
+      - cosmo
+      - assets/css/custom.scss
+    toc: true
+    toc-depth: 3
+    toc-location: left
+    smooth-scroll: true
+    code-copy: true
+    code-overflow: scroll
+    link-external-icon: true
+    link-external-newwindow: true

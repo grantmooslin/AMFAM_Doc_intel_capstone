@@ -24,6 +24,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import requests
 
+from src.braintrust_config import load_braintrust_config
 from src.env_utils import require_env
 from src.openrouter_classifier import VALID_CLASSES
 
@@ -31,7 +32,6 @@ from src.openrouter_classifier import VALID_CLASSES
 # Configuration
 # ---------------------------------------------------------------------------
 
-PROJECT_NAME = "AMFAM-Doc-Classification"
 OUTPUT_DIR = Path(__file__).resolve().parents[2] / "reports"
 
 
@@ -46,20 +46,21 @@ def fetch_experiment_results(target_experiment: Union[str, None] = None) -> tupl
     """Fetch results from a Braintrust experiment via REST API.
     If target_experiment is provided, fetch that specific experiment by name.
     Otherwise fetch the most recent. Returns (results, experiment_name, experiment_meta)."""
-    (api_key,) = require_env("BRAINTRUST_API_KEY")
+    config = load_braintrust_config()
+    api_key = config.api_key or require_env("BRAINTRUST_API_KEY")[0]
 
     headers = {"Authorization": f"Bearer {api_key}"}
 
-    # Find the project
-    resp = requests.get(f"{API_BASE}/project", headers=headers)
-    resp.raise_for_status()
-    projects = resp.json().get("objects", [])
-    project = next((p for p in projects if p["name"] == PROJECT_NAME), None)
-    if not project:
-        print(f"Error: Project '{PROJECT_NAME}' not found.")
-        sys.exit(1)
-
-    project_id = project["id"]
+    project_id = config.project_id or config.project_name
+    if not project_id:
+        resp = requests.get(f"{API_BASE}/project", headers=headers)
+        resp.raise_for_status()
+        projects = resp.json().get("objects", [])
+        project = next((p for p in projects if p["name"] == config.project_name), None)
+        if not project:
+            print(f"Error: Project '{config.project_name}' not found.")
+            sys.exit(1)
+        project_id = project["id"]
 
     # Get experiments for this project (most recent first)
     resp = requests.get(

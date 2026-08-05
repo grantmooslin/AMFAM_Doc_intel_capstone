@@ -1,0 +1,362 @@
+---
+title: 'Document Processor Module'
+description: 'PDF/TIFF → 300 DPI grayscale PNG + spatial OCR (Tesseract + Poppler) for LLM processing.'
+toc: true
+toc-depth: 3
+---
+A document processing system that converts PDF files to 300 DPI optimized images and extracts text with spatial coordinates for downstream LLM processing.
+
+## Features
+
+- **Dual Input Support**: Accepts both local PDF files and byte streams
+- **PDF-to-Image Conversion**: Multi-page PDF to individual page images at 300 DPI
+- **Image Optimization**: Grayscale conversion with original dimension retention
+- **File Output**: Saves optimized images and JSON results to disk
+- **Spatial OCR Extraction**: Text extraction with [x, y, x1, y1] bounding boxes
+- **Batch Processing**: Process entire directories of PDF files
+- **Performance Optimized**: Target latency of 4-8s for single-page, 15-20s for multi-page documents
+
+## Output Structure
+
+The processor creates two directories in your specified output folder:
+
+```
+output_directory/
+├── images/                    # 300 DPI grayscale page images
+│   ├── document_page_0001.png
+│   ├── document_page_0002.png
+│   └── ...
+└── json/                       # OCR results with bounding boxes
+    ├── document_ocr_results.json
+    └── ...
+```
+
+### JSON Output Format
+
+```json
+{
+  "document_info": {
+    "document_name": "document",
+    "total_pages": 2,
+    "dpi": 300,
+    "processing_time_seconds": 8.32,
+    "total_words_extracted": 456
+  },
+  "pages": [
+    {
+      "page_number": 1,
+      "image_path": "output_directory/images/document_page_0001.png",
+      "words": [
+        {
+          "text": "INVOICE",
+          "bounding_box": [100, 50, 250, 80]
+        },
+        {
+          "text": "#12345",
+          "bounding_box": [300, 50, 400, 80]
+        }
+      ]
+    },
+    {
+      "page_number": 2,
+      "image_path": "output_directory/images/document_page_0002.png",
+      "words": [
+        {
+          "text": "Total",
+          "bounding_box": [100, 500, 150, 520]
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Installation
+
+### System Dependencies
+
+1. **Tesseract OCR Engine**
+   - Windows: https://github.com/UB-Mannheim/tesseract/wiki
+   - macOS: `brew install tesseract`
+   - Linux: `sudo apt-get install tesseract-ocr`
+
+2. **Poppler** (for pdf2image)
+   - Windows: http://blog.alivate.com.au/poppler-windows/
+   - macOS: `brew install poppler`
+   - Linux: `sudo apt-get install poppler-utils`
+
+### Python Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+**requirements.txt:**
+```
+pdf2image==1.16.3
+pytesseract==0.3.10
+Pillow==10.0.0
+```
+
+## Usage
+
+### Process Single PDF File
+
+```python
+from document_processor import process_pdf_file
+
+# Process a single PDF file
+result = process_pdf_file(
+    file_path=r"./input_documents/document.pdf",
+    output_dir=r"./processed_documents"
+)
+
+print(result)
+# {
+#   "status": "success",
+#   "document_name": "document",
+#   "total_pages": 3,
+#   "total_words": 1245,
+#   "processing_time_seconds": 12.45,
+#   "images_directory": "processed_documents/images",
+#   "json_file": "processed_documents/json/document_ocr_results.json",
+#   "saved_images": ["processed_documents/images/document_page_0001.png", ...]
+# }
+```
+
+### Process PDF from Bytes
+
+```python
+from document_processor import process_pdf_bytes
+
+# Read PDF as bytes
+with open(r"./input_documents/document.pdf", "rb") as f:
+    pdf_bytes = f.read()
+
+# Process bytes
+result = process_pdf_bytes(
+    pdf_bytes=pdf_bytes,
+    document_name="my_document",
+    output_dir=r"./processed_documents"
+)
+```
+
+### Batch Process Directory
+
+```python
+from document_processor import BatchProcessor
+
+# Process all PDFs in a directory
+batch_processor = BatchProcessor(
+    input_dir=r"./input_documents",
+    output_dir=r"./processed_documents"
+)
+
+results = batch_processor.process_batch()
+
+# Results contains summary for each document
+for result in results:
+    if result['status'] == 'success':
+        print(f"{result['document_name']}: {result['total_words']} words")
+    else:
+        print(f"{result['document_name']}: ERROR - {result['error']}")
+```
+
+### Using the DocumentProcessor Class Directly
+
+```python
+from document_processor import DocumentProcessor
+
+# Initialize processor
+processor = DocumentProcessor(
+    output_dir=r"./processed_documents",
+    dpi=300
+)
+
+# Process from file path
+result = processor.process_pdf(
+    pdf_input=r"./input_documents/document.pdf",
+    is_bytes=False
+)
+
+# Process from bytes
+result = processor.process_pdf(
+    pdf_input=pdf_bytes,
+    document_name="custom_name",
+    is_bytes=True
+)
+```
+
+## Output Files
+
+### Image Files
+
+- **Format**: PNG
+- **Color**: Grayscale (L mode)
+- **Resolution**: 300 DPI
+- **Dimensions**: Original page dimensions (no resizing)
+- **Naming**: `{document_name}_page_{page_num:04d}.png`
+
+### JSON Files
+
+- **Format**: JSON
+- **Encoding**: UTF-8
+- **Naming**: `{document_name}_ocr_results.json`
+- **Content**: Document metadata, page data, word tokens with bounding boxes
+
+## Bounding Box Format
+
+Each word includes a bounding box in `[x, y, x1, y1]` format:
+
+- `x, y`: Top-left corner coordinates (pixels)
+- `x1, y1`: Bottom-right corner coordinates (pixels)
+
+This format is suitable for downstream multimodal learning and LLM processing.
+
+## Performance
+
+The system is optimized for target latencies:
+
+- **Single-page PDF**: 4-8 seconds
+- **Multi-page PDF**: 15-20 seconds
+
+Performance optimizations:
+- Thread count: 4 for PDF conversion
+- Grayscale conversion reduces processing time
+- Sequential page processing to minimize memory usage
+- Efficient OCR with single-pass spatial data extraction
+
+## Configuration
+
+### Custom DPI
+
+```python
+processor = DocumentProcessor(output_dir=r"./output", dpi=300)  # Default
+processor = DocumentProcessor(output_dir=r"./output", dpi=200)  # Faster, lower quality
+processor = DocumentProcessor(output_dir=r"./output", dpi=600)  # Slower, higher quality
+```
+
+### Custom Output Directory
+
+```python
+processor = DocumentProcessor(output_dir=r"./custom_output_path")
+```
+
+## Error Handling
+
+```python
+try:
+    result = process_pdf_file("document.pdf", "./output")
+except FileNotFoundError:
+    print("PDF file not found")
+except Exception as e:
+    print(f"Processing error: {e}")
+```
+
+## Troubleshooting
+
+### Tesseract Not Found
+
+```python
+import pytesseract
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+```
+
+### PDF Conversion Errors
+
+- Ensure Poppler is installed and in system PATH
+- Verify PDF files are not corrupted
+- Check sufficient disk space for temporary files
+
+### Slow Processing
+
+- Reduce DPI for faster processing (lower quality)
+- Ensure sufficient system resources (CPU/RAM)
+- Process documents in smaller batches
+
+## Use Cases
+
+- **Document Classification**: Prepare data for LayoutLM or similar models
+- **Information Extraction**: Create datasets with spatial text features
+- **Document Understanding**: Analyze document structure and layout
+- **LLM Processing**: Generate structured input for multimodal LLMs
+- **Dataset Creation**: Build training datasets with images and annotations
+
+## Architecture
+
+### Processing Pipeline
+
+1. **Input**: PDF file (path or bytes)
+2. **Conversion**: PDF → Page images at 300 DPI
+3. **Optimization**: Convert to grayscale, retain dimensions
+4. **Save Images**: Write optimized images to disk
+5. **OCR**: Extract text with bounding boxes
+6. **Save JSON**: Write structured results to disk
+7. **Output**: Processing summary with file paths
+
+### Class Structure
+
+```
+DocumentProcessor (Core)
+├── PDF Conversion (pdf2image)
+├── Image Optimization (PIL)
+├── Image Saving (PNG, 300 DPI)
+├── OCR Extraction (PyTesseract)
+└── JSON Saving (structured output)
+
+BatchProcessor (Batch Operations)
+├── Directory Scanning
+├── Sequential Processing
+└── Results Aggregation
+```
+
+## Example Workflow
+
+```python
+# 1. Process a directory of PDFs
+from document_processor import BatchProcessor
+
+batch_processor = BatchProcessor(
+    input_dir=r"./raw_pdfs",
+    output_dir=r"./processed_data"
+)
+
+results = batch_processor.process_batch()
+
+# 2. Load JSON results for LLM processing
+import json
+
+for result in results:
+    if result['status'] == 'success':
+        json_path = result['json_file']
+        with open(json_path, 'r') as f:
+            data = json.load(f)
+        
+        # Use data for LLM processing
+        # data['pages'] contains word tokens with bounding boxes
+        # data['document_info'] contains metadata
+```
+
+## File Naming Conventions
+
+### Images
+- Pattern: `{document_name}_page_{page_num:04d}.png`
+- Example: `invoice_page_0001.png`, `invoice_page_0002.png`
+
+### JSON
+- Pattern: `{document_name}_ocr_results.json`
+- Example: `invoice_ocr_results.json`
+
+## Performance Monitoring
+
+The processor logs processing time for each page and overall document:
+
+```
+Page 1: 45 words extracted in 2.34s
+Page 2: 38 words extracted in 2.12s
+Processing complete: 4.56s total
+```
+
+## License
+
+This module is designed for document intelligence pipelines and multimodal learning applications.

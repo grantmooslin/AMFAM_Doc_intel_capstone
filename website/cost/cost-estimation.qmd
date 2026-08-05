@@ -1,0 +1,88 @@
+---
+title: 'OpenRouter Cost Estimation'
+description: 'Single-image token usage and linear extrapolation for 800 / 25,000 / 320,000 images.'
+toc: true
+toc-depth: 3
+---
+Based on actual single-image runs on OpenRouter.
+
+## Model 1: `moonshotai/kimi-k3`
+
+### Single-Image Usage (Actual API Response)
+
+- **Prompt tokens:** 11,996
+- **Completion tokens:** 20
+- **Total tokens:** 12,016
+- **Actual upstream cost:** $0.0039312
+  - Prompt cost: $0.0036312
+  - Completion cost: $0.0003000
+
+### Actual Cost Projections
+
+| Images | Prompt Tokens | Completion Tokens | Total Tokens | **Total Cost** |
+| -------- | --------------: | ------------------: | -------------: | ---------------: |
+| 800 | 9,596,800 | 16,000 | 9,612,800 | **$3.14** |
+| 25,000 | 299,900,000 | 500,000 | 300,400,000 | **$98.28** |
+| 320,000 | 3,838,720,000 | 6,400,000 | 3,845,120,000 | **$1,257.98** |
+
+## Model 2: `anthropic/claude-fable-5`
+
+### Single-Image Usage (Actual API Response)
+
+- **Prompt tokens:** 5,313
+- **Completion tokens:** 6
+- **Total tokens:** 5,319
+- **Actual upstream cost:** $0.05343
+  - Prompt cost: $0.05313
+  - Completion cost: $0.00030
+
+### Actual Cost Projections
+
+| Images | Prompt Tokens | Completion Tokens | Total Tokens | **Total Cost** |
+| -------- | --------------: | ------------------: | -------------: | ---------------: |
+| 800 | 4,250,400 | 4,800 | 4,255,200 | **$42.74** |
+| 25,000 | 132,825,000 | 150,000 | 132,975,000 | **$1,335.75** |
+| 320,000 | 1,700,160,000 | 1,920,000 | 1,702,080,000 | **$17,097.60** |
+
+## Model 3: `x-ai/grok-4.5`
+
+### Single-Image Usage (Actual API Response)
+
+- **Prompt tokens:** 2,954
+- **Completion tokens:** 53
+- **Total tokens:** 3,007
+- **Actual upstream cost:** $0.0060084
+  - Prompt cost: $0.0056904
+  - Completion cost: $0.0003180
+
+### Actual Cost Projections
+
+| Images | Prompt Tokens | Completion Tokens | Total Tokens | **Total Cost** |
+| -------- | --------------: | ------------------: | -------------: | ---------------: |
+| 800 | 2,363,200 | 42,400 | 2,405,600 | **$4.81** |
+| 25,000 | 73,850,000 | 1,325,000 | 75,175,000 | **$150.21** |
+| 320,000 | 945,280,000 | 16,960,000 | 962,240,000 | **$1,922.69** |
+
+## Model 4: `nex-agi/nex-n2-pro`
+
+### Single-Image Usage (Actual API Response)
+
+- **Prompt tokens:** 13,231
+- **Completion tokens:** 5
+- **Total tokens:** 13,236
+- **Actual upstream cost:** $0.0033128
+  - Prompt cost: $0.0033078
+  - Completion cost: $0.0000050
+
+### Actual Cost Projections
+
+| Images | Prompt Tokens | Completion Tokens | Total Tokens | **Total Cost** |
+| -------- | --------------: | ------------------: | -------------: | ---------------: |
+| 800 | 10,584,800 | 4,000 | 10,588,800 | **$2.65** |
+| 25,000 | 330,775,000 | 125,000 | 330,900,000 | **$82.82** |
+| 320,000 | 4,233,920,000 | 1,600,000 | 4,235,520,000 | **$1,060.08** |
+
+## Notes
+
+- Token counts and costs are extrapolated linearly from one representative image per model.
+- Actual total cost may vary slightly depending on image dimensions, content, and any OpenRouter/provider price changes.

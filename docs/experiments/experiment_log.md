@@ -853,3 +853,109 @@ Run was aborted mid-flight (~109/160 completed) due to a transient DNS/network o
 `api.braintrust.dev` that crashed the Braintrust logging thread (no usable result row). The
 manifest (`reports/manifests/eval_v11_8_kimi.jsonl`) preserves the completed rows if a rerun is
 wanted; the experiment in Braintrust is partial and should not be used for comparisons.
+
+---
+
+## Experiment: `google/gemini-2.5-flash` — 480 Images (30 per class × 16 classes)
+
+**Experiment ID:** qwen3.7-flash_v0_reasoning_480-d4c97ff0
+**Dataset:** 2550×3300 padded PNGs, 300 DPI
+**Prompt:** `CLASSIFICATION_PROMPT` from `src/openrouter_classifier.py`
+**Settings:** `max_tokens=1024`, `temperature=0.1`, `reasoning.effort=medium`
+**Image size:** `2550×3300`
+
+### Results
+
+| Metric | Value |
+|--------|------:|
+| **Accuracy (exact_match)** | **69.17%** (332/480 correct) |
+| Prompt tokens (avg) | 1,262.68 |
+| Prompt cached tokens (avg) | 0.00 |
+| Completion tokens (avg) | 3,027.66 |
+| Total tokens (avg) | 4,290.33 |
+| Duration (avg) | 0.00s |
+| Errors | 0 |
+
+### Cost Projections (Gemini 2.5 Flash, `max_tokens=1024`, 2550×3300 images)
+
+**Pricing:** $0.15/M input tokens, $0.6/M output tokens
+
+| Images | Prompt Tokens | Completion Tokens | Total Tokens | **Estimated Cost** |
+|--------|---:|---:|---:|---:|
+| 800 | 1,010,140 | 2,422,125 | 3,432,266 | **$1.60** |
+| 25,000 | 31,566,898 | 75,691,435 | 107,258,333 | **$50.15** |
+| 320,000 | 404,056,296 | 968,850,370 | 1,372,906,666 | **$641.92** |
+---
+
+## Experiment: `qwen/qwen3.7-flash` — 800 Images (50 per class × 16 classes)
+
+**Experiment ID:** qwen3.7-flash_v0_reasoning_800-f0b6b2e4
+**Dataset:** rvl_cdip_800, 1024×1024 grayscale padded PNGs
+**Prompt:** `v0` from `src/prompts.py`
+**Settings:** `max_tokens=8192`, `temperature=0.1`, `reasoning.effort=high`
+
+### Results
+
+| Metric | Value |
+|--------|------:|
+| **Accuracy (exact_match)** | **66.12%** (529/800 correct) |
+| Prompt tokens (avg) | 741.1 |
+| Prompt cached tokens (avg) | 0.0 |
+| Completion tokens (avg) | 1,552.1 |
+| Total tokens (avg) | 2,293.1 |
+| Errors | 0 |
+
+### Cost — Expected vs Actual
+
+**Pricing:** /bin/zsh.03/M input, /bin/zsh.13/M output. Expected /bin/zsh.1792 (list price × measured tokens); actual billed /bin/zsh.1773 (+1.1%).
+
+| Images | Expected Cost | Estimated Actual |
+|--------|--------------:|-----------------:|
+| 800 | /bin/zsh.18 | /bin/zsh.18 |
+| 25,000 | .60 | .54 |
+| 320,000 | .68 | .92 |
+---
+
+## Experiment: `qwen/qwen3.7-flash` — 800 Images (50 per class × 16 classes)
+
+**Experiment ID:** qwen3.7-flash_v11.8_reasoning_800-f6f4648b
+**Dataset:** rvl_cdip_800, 1024×1024 grayscale padded PNGs
+**Prompt:** `v11.8` from `src/prompts.py`
+**Settings:** `max_tokens=8192`, `temperature=0.1`, `reasoning.effort=high`
+
+### Results
+
+| Metric | Value |
+|--------|------:|
+| **Accuracy (exact_match)** | **83.12%** (665/800 correct) |
+| Prompt tokens (avg) | 11,986.0 |
+| Prompt cached tokens (avg) | 7,325.6 |
+| Completion tokens (avg) | 1,906.5 |
+| Total tokens (avg) | 13,892.5 |
+| Errors | 0 |
+
+### Cost — Expected vs Actual
+
+**Pricing:** /bin/zsh.03/M input (/bin/zsh.003/M cached), /bin/zsh.13/M output. Heavy prompt caching (~61% of prompt tokens cached). Expected /bin/zsh.3276 (cache-adjusted); actual billed /bin/zsh.3427 (+4.6%).
+
+| Images | Expected Cost | Estimated Actual |
+|--------|--------------:|-----------------:|
+| 800 | /bin/zsh.33 | /bin/zsh.34 |
+| 25,000 | .24 | .71 |
+| 320,000 | .04 | .08 |
+---
+
+## Experiment: `qwen3.7-flash_v11.8_reasoning_1600_balanced_1120` — 1120 images (70 per class × 16 classes)
+
+**Model:** `qwen/qwen3.7-flash`  
+**Prompt:** `v11.8`  
+**Dataset:** `rvl_cdip_1600`  
+
+| Metric | Value |
+|---|---:|
+| **exact_match** | **925/1120 (82.6%)** |
+| Failure rate | 0.0% |
+| Near-miss | 72 (36.9% of misses) |
+| Expected cost | $0.6815 |
+| Actual cost | $0.4937 |
+

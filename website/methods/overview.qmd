@@ -1,0 +1,110 @@
+---
+title: "Pipeline & Architecture"
+subtitle: "How images become 16-class predictions — and how every run is tracked"
+toc: true
+toc-depth: 3
+---
+
+## Classification pipeline
+
+Every document goes through the same deterministic preprocessing before it ever
+reaches a model:
+
+1. **Normalization** — the raw scan (TIFF, PNG, JPEG, PDF) is decoded and
+   converted to grayscale.
+2. **Resize with padding** — `src/image_utils.resize_with_padding()` scales the
+   page to fit a 1024×1024 canvas, preserving aspect ratio with white padding.
+   The result is re-encoded as a grayscale PNG.
+3. **Vision-model call** — the padded image plus the versioned classification
+   prompt is sent to OpenRouter through an OpenAI-compatible client.
+4. **Prediction extraction** — `extract_prediction()` maps the model's free-text
+   response back onto the 16-class vocabulary (plus a runner-up line when the
+   prompt asks for one).
+5. **Scoring** — the row is scored **exact-match** (1.0 / 0.0), with a separate
+   `failure` scorer for `ERROR:` sentinels and a `cost` scorer recording the
+   billed USD from `usage.cost`.
+
+```text
+raw scan ──► grayscale ──► 1024×1024 padded PNG ──► OpenRouter vision model
+                                                       │
+                               versioned prompt (v0→v17.2)
+                                                       ▼
+                        16-class prediction + reasoning + runner-up
+                                                       │
+                                                       ▼
+                        Braintrust row: exact_match · failure · cost
+```
+
+## Prompt anatomy
+
+The current default, **v17.2**, is the product of 27 append-only revisions.
+Across versions the prompt has grown:
+
+- a strict **vocabulary** of the 16 class names with disambiguation notes
+- a **14-check verification cascade** the model must walk in its scratchpad
+- explicit **abstention / "unsure"** guidance and self-critical re-checking
+- instructions to name a **runner-up** class and confidence
+
+See the [prompt changelog](../prompts/prompt-changelog.qmd) for what changed
+between every version and the accuracy each earned.
+
+## Module layout
+
+| Module | Responsibility |
+|--------|----------------|
+| `src/constants.py` | the 16 `DOCUMENT_CLASSES` and image extensions |
+| `src/prompts.py` | versioned prompts (`PROMPTS` dict), `DEFAULT_PROMPT_VERSION` |
+| `src/image_utils.py` | grayscale + aspect-ratio-preserving resize with padding |
+| `src/openrouter_classifier.py` | the classification call itself |
+| `src/openrouter_utils.py` | OpenRouter client / key handling (`_candidate_keys()`) |
+| `src/braintrust_config.py` | `braintrust.env`-driven project/dataset/model config |
+| `src/braintrust_utils.py` | REST API: experiment fetch, dataset CRUD, attachments |
+| `src/evaluation.py` | `validate_dataset()`, `ManifestStore` for resumable runs |
+| `src/monte_carlo.py` | the Monte Carlo experiment harness |
+| `src/document_processor.py` | preprocessing + candidate processing helpers |
+
+## Eval runner
+
+`scripts/braintrust/braintrust_openrouter_input.py` wraps an OpenAI client pointed
+at OpenRouter with `braintrust.wrap_openai()` and runs a `braintrust.Eval()` with
+`max_concurrency=8`. It retries transient provider failures (502s, empty
+responses, content filtering) up to three times and doubles `max_tokens` on
+`finish_reason=length` up to a 32,768-token cap. Runs are checkpointed to a
+resumable JSONL **manifest** via `ManifestStore`, so an interrupted eval can
+continue where it left off.
+
+## Data slices
+
+Balanced slices — N images per class × 16 classes — are uploaded to Braintrust
+as base64 PNG attachments with ground-truth labels. Each is seeded and
+pixel-deduped against every prior slice, so evaluation sets are disjoint by
+construction.
+
+| Slice | Images | Source | Notes |
+|------:|-------:|--------|-------|
+| `fixed_size_sampled` | 160 | 10/class | the primary 160-image set |
+| `fixed_size_sampled_v2` | 160 | seed 1738 | disjoint vs v1 + `_320` + `_480` |
+| `fixed_size_sampled_v3/v4` | 160 | seeds 2303/9413 | HF test shards, disjoint |
+| `fixed_size_sampled_320` | 320 | 20/class | superset containing the 160 |
+| `fixed_size_sampled_480` | 480 | 30/class | superset containing the 160 |
+| `rvl_cdip_800` | 800 | 50/class | train split of the 100/class HF mirror |
+| `1600_balanced_1120` | 1,120 | 100/class | train+test+validation, disjoint from `_800` |
+
+## Cost accounting
+
+Accuracy is not the whole story. Every row records the billed USD from
+OpenRouter's `usage.cost`, and reports project both **expected** (list price ×
+measured tokens) and **actual** (sum of billed row costs) to 800 / 25,000 /
+320,000 images. See [cost estimation](../cost/cost-estimation.qmd) and
+[cost projections](../cost/cost-projections.qmd).
+
+## Reproducibility
+
+- Dataset samplers seed `random.Random(seed)` — the same seed + source always
+  reproduces the same slice.
+- Disjointness is enforced in **rendered-pixel space**: candidates are
+  normalized first, hashed, and accepted only if the hash is unseen.
+- Every slice builder logs a `create-<dataset>` provenance experiment carrying
+  source URL, split, seed, target size, and image list.
+- Prompt versions are append-only in `src/prompts.py`; the changelog records
+  rationale and results for each.

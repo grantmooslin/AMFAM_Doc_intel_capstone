@@ -1,0 +1,59 @@
+---
+title: 'Prompt Rules Provenance'
+description: 'Sources and validation status of classification rules across prompt versions v1–v4.'
+toc: true
+toc-depth: 3
+---
+This document tracks the sources and validation status of classification rules across prompt versions.
+
+## v1 Baseline Rules
+- **Source**: Original RVL-CDIP documentation and common document classification practices
+- **Validation**: Initial testing on 160-image dev set
+- **Issues**: No formal disambiguation rules, leading to confusion between similar classes
+
+## v2 Disambiguation Rules
+- **Source**: Analysis of confusion matrices from v1 results
+- **Changes**: Added specific disambiguation rules for problematic class pairs
+- **Validation Issues**:
+  - **Contradiction**: form included questionnaires, but rule sent surveys to questionnaire
+  - **Gold-label conflicts**: Encoded wrong answers (voucher→budget, rate sheets→specification when gold was invoice)
+  - **Substring matching bug**: "information" substring matched "form" causing false positives
+
+## v3 Ranked Decision Cascade
+- **Source**: Systematic analysis of v2 failures and gold-label verification
+- **Changes**:
+  - Removed contradictions between form and questionnaire
+  - Fixed gold-label conflicts (rate sheets now correctly classified as specification)
+  - Implemented ranked decision cascade for consistent classification
+  - Made scientific_report the last choice to reduce over-prediction
+- **Validation**: Tested on 160-image dev set, achieved 92.2% accuracy (77/160 scored)
+
+## v4 Handwriting and Illegible Page Fixes
+- **Source**: Analysis of v3 reasoning traces and misclassifications
+- **Changes**:
+  - **Handwriting fix**: Rewrote check 2 to focus on message-carrying content rather than area
+    - Old: "If the MAJORITY of the document content is handwritten"
+    - New: "If the document contains SUBSTANTIAL HANDWRITTEN CONTENT that carries the main message"
+  - **Illegible-page rule**: Added escape rule for near-blank scans with only Bates stickers
+    - New check 1: "Is the page nearly blank with only Bates stamps, stickers, or scanning artifacts?"
+  - **Experimental data boundary**: Split specification vs scientific_report for experimental data
+    - specification: "Includes experimental data plots and test results that define product properties or exhibit characteristics"
+    - scientific_report: "Only if it presents research findings with methodology but lacks journal headers and is NOT product test data"
+- **Validation**: Pending testing on Qwen 3.7 Flash
+
+## Gold Label Validation Results
+- **voucher vs budget**: Gold labels confirmed as budget (not specification)
+- **rate sheets**: Gold labels confirmed as specification (not invoice)
+- **fax cover sheets**: Gold labels confirmed as form (not memo/letter)
+- **journal articles**: Some label noise found - journal articles mislabeled as news_article
+
+## Technical Improvements
+- **clean_prediction function**: Fixed substring matching bug in v4
+  - Old: `if cls in text:` (substring matching)
+  - New: `if re.search(r'\b' + re.escape(cls) + r'\b', text):` (word boundary matching)
+
+## Model Testing Status
+- **v1**: Tested on Gemini 2.5 Flash (baseline)
+- **v2**: Tested on Kimi K3 (found contradictions)
+- **v3**: Tested on Kimi K2.6 (92.2% accuracy on 77/160 images)
+- **v4**: Pending testing on Qwen 3.7 Flash (160-image sample set)

@@ -7,6 +7,8 @@ Braintrust wire protocol (experiment fetch, attachment downloads, dataset
 loading) lives in one place.
 """
 
+from __future__ import annotations
+
 import base64
 import os
 import re
@@ -21,6 +23,7 @@ from src.constants import DOCUMENT_CLASSES
 VALID_CLASSES = DOCUMENT_CLASSES
 DEFAULT_ATTACHMENT_WORKERS = 8
 EXPERIMENT_FETCH_RETRIES = 6
+EXPERIMENT_FETCH_LIMIT = 1000  # events per paginated fetch (API supports up to 1000)
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +93,7 @@ def fetch_experiment_rows(
     rows: list[dict] = []
     cursor = None
     while True:
-        body = {"limit": 100}
+        body = {"limit": EXPERIMENT_FETCH_LIMIT}
         if cursor:
             body["cursor"] = cursor
         for attempt in range(max_retries):
@@ -201,8 +204,13 @@ def fetch_attachment_bytes(
     reference: dict,
     org_id: str,
     api_base: str = "https://api.braintrust.dev",
+    retries: int = 3,
 ) -> bytes:
-    """Download an already-uploaded Braintrust attachment's bytes directly."""
+    """Download an already-uploaded Braintrust attachment's bytes directly.
+
+    Transient object-store read timeouts are retried with linear backoff so a
+    single slow S3 response never drops a row from an evaluation.
+    """
     params = {
         "filename": reference["filename"],
         "content_type": reference["content_type"],
@@ -215,18 +223,26 @@ def fetch_attachment_bytes(
     else:
         raise RuntimeError(f"Unknown attachment type: {reference['type']}")
 
-    resp = requests.get(
-        f"{api_base}/attachment",
-        params=params,
-        headers={"Authorization": f"Bearer {api_key}"},
-        timeout=60,
-    )
-    resp.raise_for_status()
-    download_url = resp.json()["downloadUrl"]
+    last_error: Exception | None = None
+    for attempt in range(retries):
+        try:
+            resp = requests.get(
+                f"{api_base}/attachment",
+                params=params,
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=60,
+            )
+            resp.raise_for_status()
+            download_url = resp.json()["downloadUrl"]
 
-    data = requests.get(download_url, timeout=120)
-    data.raise_for_status()
-    return data.content
+            data = requests.get(download_url, timeout=120)
+            data.raise_for_status()
+            return data.content
+        except requests.exceptions.RequestException as exc:
+            last_error = exc
+            if attempt < retries - 1:
+                time.sleep(2 * (attempt + 1))
+    raise last_error
 
 
 def load_braintrust_dataset(

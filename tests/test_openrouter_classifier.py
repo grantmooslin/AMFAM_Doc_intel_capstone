@@ -40,6 +40,40 @@ class TestCleanPrediction:
             assert oc.clean_prediction(cls) == cls
 
 
+class TestExtractRunnerUp:
+    def test_returns_empty_for_none_or_blank(self):
+        assert oc.extract_runner_up(None) == ""
+        assert oc.extract_runner_up("") == ""
+
+    def test_extracts_label_after_runner_up_marker(self):
+        text = (
+            "<scratchpad>\nquestionnaire: yes ...\n"
+            "Runner-up: form, ruled out because the page is a printed survey instrument "
+            "(check 4), which precedes the generic form check.\n</scratchpad>"
+        )
+        assert oc.extract_runner_up(text) == "form"
+
+    def test_first_positional_class_wins(self):
+        # "budget" appears before "invoice" positionally; VALID_CLASSES order
+        # (budget, invoice, ...) agrees, but a later-in-string class must not win.
+        text = "Runner-up: budget, though it also resembled an invoice."
+        assert oc.extract_runner_up(text) == "budget"
+
+    def test_no_marker_returns_empty(self):
+        assert oc.extract_runner_up("just a scratchpad with no runner-up line") == ""
+
+    def test_marker_without_valid_class_returns_empty(self):
+        assert oc.extract_runner_up("Runner-up: none — everything else ruled out") == ""
+
+    def test_accepts_runner_up_variants(self):
+        assert oc.extract_runner_up("runner up: letter, ruled out by the salutation") == "letter"
+        assert oc.extract_runner_up("Runner-up: letter") == "letter"
+
+    def test_ignores_reason_text_mentions_before_marker(self):
+        text = "form looked plausible here. Runner-up: letter, ruled out by the salutation."
+        assert oc.extract_runner_up(text) == "letter"
+
+
 class TestEncodeImage:
     def test_encodes_file_contents_to_base64(self, tmp_path):
         raw = b"\x89PNG fake bytes"

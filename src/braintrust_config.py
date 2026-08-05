@@ -10,6 +10,8 @@ one place. Command-line flags in the individual scripts still override the
 config values per run.
 """
 
+from __future__ import annotations
+
 import os
 from dataclasses import dataclass
 from pathlib import Path

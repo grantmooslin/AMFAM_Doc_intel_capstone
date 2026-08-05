@@ -1,0 +1,86 @@
+---
+title: 'Gemini 2.5 Flash — 800 Images'
+description: '50/class slice: 72.9% accuracy, per-class table, top confusion pairs, cost projections.'
+toc: true
+toc-depth: 3
+---
+## Experiment: `google/gemini-2.5-flash` — 800 Images (50 per class × 16 classes)
+
+**Experiment ID:** `main-1785272634`
+**Dataset:** `2550x3300_50perclass_800/images/` (2550×3300 padded PNGs, 300 DPI)
+**Prompt:** `CLASSIFICATION_PROMPT` from `src/openrouter_classifier.py` (baseline, pre-disambiguation)
+**Settings:** `max_tokens=1024`, `temperature=0.1`, `reasoning.effort=medium`
+**Image size:** `2550×3300`
+**Model:** `google/gemini-2.5-flash` via OpenRouter
+
+### Results
+
+| Metric | Value |
+| -------- | ------: |
+| **Accuracy (exact_match)** | **72.9%** (583/800 correct) |
+| Prompt tokens (avg) | 3,701.00 |
+| Prompt cached tokens (avg) | 0.00 |
+| Completion tokens (avg) | 417.38 |
+| Total tokens (avg) | 4,118.38 |
+| Duration (avg) | 0.00s |
+| Errors | 0 |
+
+### Per-Class Accuracy
+
+| Class | Correct | Total | Accuracy |
+| ------- | --------: | ------: | ---------: |
+| resume | 49 | 50 | 98% |
+| memo | 48 | 50 | 96% |
+| news_article | 47 | 50 | 94% |
+| scientific_publication | 47 | 50 | 94% |
+| email | 46 | 50 | 92% |
+| advertisement | 44 | 50 | 88% |
+| invoice | 43 | 50 | 86% |
+| questionnaire | 42 | 50 | 84% |
+| letter | 38 | 50 | 76% |
+| scientific_report | 38 | 50 | 76% |
+| handwritten | 33 | 50 | 66% |
+| file_folder | 27 | 49 | 55% |
+| budget | 25 | 49 | 51% |
+| specification | 23 | 50 | 46% |
+| presentation | 18 | 50 | 36% |
+| form | 15 | 50 | 30% |
+
+### Top Confused Pairs
+
+| Expected | Predicted As | Count |
+| ---------- | ------------- | ------: |
+| specification | scientific_report | 25 |
+| form | memo | 13 |
+| budget | invoice | 12 |
+| form | letter | 11 |
+| presentation | news_article | 11 |
+| presentation | scientific_report | 11 |
+| letter | memo | 8 |
+| scientific_report | scientific_publication | 8 |
+| file_folder | handwritten | 7 |
+| file_folder | scientific_report | 7 |
+| form | scientific_report | 7 |
+
+### Key Findings
+
+- **`scientific_report` is massively over-predicted** — 64 false positives from 7 different classes
+- **Bottom 3 classes** (form 30%, presentation 36%, specification 46%) account for ~50% of all errors
+- Fax cover sheets labeled as `form` are consistently predicted as `memo` or `letter`
+- `specification` vs `scientific_report` is the single worst confusion pair (25 errors)
+
+### Cost Projections (Gemini 2.5 Flash, `max_tokens=1024`, 2550×3300 images)
+
+**Pricing:** $0.15/M input tokens, $0.60/M output tokens
+
+| Images | Prompt Tokens | Completion Tokens | Total Tokens | **Estimated Cost** |
+| -------- | ---: | ---: | ---: | ---: |
+| 800 | 2,960,800 | 333,904 | 3,294,704 | **$0.64** |
+| 25,000 | 92,525,000 | 10,434,500 | 102,959,500 | **$20.14** |
+| 320,000 | 1,184,320,000 | 133,561,600 | 1,317,881,600 | **$257.78** |
+
+### Notes
+
+- See `docs/confusion_matrix_main-1785272634.md` for full confusion matrix
+- See `docs/misclassification_reasoning_main-1785270444.md` for reasoning trace analysis
+- Disambiguation prompt update applied to `src/openrouter_classifier.py` based on these findings

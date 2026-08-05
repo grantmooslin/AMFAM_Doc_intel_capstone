@@ -1,0 +1,29 @@
+---
+title: 'Document Classes'
+subtitle: 'The 16-class RVL-CDIP target vocabulary'
+toc: true
+toc-depth: 3
+---
+
+The classifier distinguishes between these 16 RVL-CDIP document classes. They are the
+target vocabulary for the exact-match accuracy metric and the rows/columns of every
+confusion matrix on this site.
+
+| # | Class | Notes |
+|---|-------|-------|
+| 1 | `advertisement` | |
+| 2 | `budget` | |
+| 3 | `email` | |
+| 4 | `file_folder` | |
+| 5 | `form` | |
+| 6 | `handwritten` | |
+| 7 | `invoice` | |
+| 8 | `letter` | |
+| 9 | `memo` | |
+| 10 | `news_article` | |
+| 11 | `presentation` | |
+| 12 | `questionnaire` | |
+| 13 | `resume` | |
+| 14 | `scientific_publication` | |
+| 15 | `scientific_report` | |
+| 16 | `specification` | |

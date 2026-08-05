@@ -36,6 +36,7 @@ settings; `.env` fills the gaps (notably `OPENROUTER_API_KEY`).
 | Build misclassification smoke set | `python scripts/braintrust/create_misclassification_smoke_dataset.py [--dry-run]` |
 | Validate a queued eval | `python scripts/braintrust/preflight_eval.py --dataset <ds> --prompt-version v14` |
 | Run production eval queue | `python scripts/braintrust/run_eval_queue.py --dry-run` |
+| Port datasets to a new account | `python scripts/braintrust/copy_datasets_to_new_env.py --datasets <ds...> --dest-project-id <id> --dest-project-name AMFAMv2 --dest-org <org> --dest-api-key <key>` |
 
 The production queue includes `qwen3.7-flash_v14_fixed_size_sample`, which runs
 prompt `v14` with `qwen/qwen3.7-flash` on the canonical `fixed_size_sampled`
@@ -115,6 +116,35 @@ python scripts/braintrust/create_misclassification_smoke_dataset.py             
 
 Braintrust config (org/project/dataset/model) is read from `braintrust.env`; every command above
 can override it with `--project-id`, `--project`, `--dataset`, or `--model`.
+
+## Porting datasets to a new Braintrust account
+
+`braintrust.env` is the single source of truth for Braintrust credentials and should carry the
+**new** account's key (`.env` may still hold the previous account's stale key). After configuring
+new credentials (see `AGENTS.md` → "Adding / configuring new Braintrust credentials"), port
+datasets from the previous account:
+
+```bash
+# Source credentials come from braintrust.env/.env; destination is passed explicitly.
+python scripts/braintrust/copy_datasets_to_new_env.py \
+  --datasets fixed_size_sampled fixed_size_sampled_320 \
+  --dest-project-id <new-project-id> \
+  --dest-project-name AMFAMv2 \
+  --dest-org <new-org-id> \
+  --dest-api-key <new-key>          # or export BRAINTRUST_DEST_API_KEY
+```
+
+Attachments upload synchronously with retries and every row is verified by re-download;
+`--delete-existing` makes re-copies idempotent. The one-off `copy_braintrust_dataset.py` variant
+copies a single dataset by editing its `SOURCE_*`/`DEST_*` constants.
+
+## Research funding key
+
+`RESEARCH_FUNDING_API_KEY` (optional, in `.env`) is a separate OpenRouter key reserved for large
+or significant runs whose prompt has passed all vetting steps. It is **never** the default —
+routine testing/iteration runs on `OPENROUTER_API_KEY`. It is used only when a script explicitly
+requests it (e.g. `run_v11_8_800_after_480.py`) or as automatic 403-quota failover in
+`braintrust_openrouter_input.py`.
 
 ## Helpful flags
 

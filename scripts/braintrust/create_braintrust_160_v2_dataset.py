@@ -25,6 +25,8 @@ Usage:
     python scripts/braintrust/create_braintrust_160_v2_dataset.py --output-dir fixed_size_sampled_v2
 """
 
+from __future__ import annotations
+
 import argparse
 import base64
 import hashlib

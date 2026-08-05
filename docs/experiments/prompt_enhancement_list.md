@@ -1,0 +1,285 @@
+# Data-Backed Prompt & Pipeline Enhancement List
+
+Compiled from the Monte Carlo analysis suite (`reports/monte_carlo/`), the joint
+corpus (4,641 rows / 1,512 images across 14 experiments, 4 models, prompt
+versions v0–v17.2), and the existing per-experiment reports. Every claim below
+carries its source table/chart.
+
+---
+
+## 1. Executive summary
+
+The model's error budget is concentrated in **five document classes** and a
+handful of **directional confusion pairs**, not in sampling noise. The
+simulations and the spend-minimal verification evals agree on the levers, ranked
+by measured/simulated return:
+
+1. **Recover the near-miss ceiling (+3.9pp simulated on the current prompt
+   line).** 27.7% of current-line misses have the CORRECT label as the model's
+   stated runner-up. The model already knows the answer and overrides it. This
+   is the cheapest accuracy available — and the verified exemplar experiment
+   shows that **adding more text does not fix it; only a decision rule can**.
+2. **Fix the form over-attractor (−2.4pp drag).** `form` is predicted 456×
+   across the corpus vs a ~290/class balanced share — it is the top
+   false-prediction sink (5 of the top 8 confusion pairs end in `form`).
+3. **Confidence-gated escalation with a genuinely STRONGER model (+4–6pp
+   simulated).** Verified: the low-confidence tail is genuinely hard (66.7%
+   measured vs 82% average), but escalating to the SAME model at higher effort
+   did not help (62.5%). Escalation requires a stronger model, not more effort.
+
+Committee voting (K=1→10: 82.1%→85.3%) and the v18 exemplar appendix (−4.2pp
+measured) are **not** worthwhile levers on the current data.
+
+---
+
+## 2. Ensemble & variance simulation
+
+**Source:** `reports/monte_carlo/ensemble_accuracy_vs_k.md`
+
+| K | accuracy | 95% CI | cost |
+|---:|---:|---:|---:|
+| 1 | 0.821 | 0.805–0.836 | 1x |
+| 5 | 0.844 | 0.828–0.859 | 5x |
+| 10 | 0.853 | 0.837–0.869 | 10x |
+| 25 | 0.863 | 0.846–0.879 | 25x |
+
+**Interpretation.** Cross-run variance is small. Majority voting buys at most
++4.2pp at 25× cost; the marginal gain per extra vote collapses after K=5. The
+variance budget lives in the *prompt* (v0→v17 is +28.4pp), not in repeated
+sampling.
+
+**Action:** Do NOT run K-vote ensembles in production. If a second pass is ever
+justified, it should be a **single** second opinion on low-confidence images
+(§4), not a full committee.
+
+---
+
+## 3. Near-miss ceiling (highest-value finding)
+
+**Source:** corpus analysis, §2 of this document.
+
+- Current-line (v11.8+) exact-match: **86.0%** (2,867/3,332).
+- Misses with `runner_up == expected` (the model named the right class as its
+  second choice): **129 / 465 = 27.7%** of misses.
+- **Recoverable ceiling: 89.9% (+3.9pp)** if every near-miss were corrected.
+- Top near-miss pairs: `letter→memo` (14), `budget→invoice` (12),
+  `invoice→form` (9), `invoice→budget` (8), `scientific_report→form` (7).
+
+**Why it happens.** The v8+ scratchpad forces a `Runner-up:` line. The model
+often states the correct disambiguation in that line but commits to the wrong
+label in `<label>`. This is a **decision, not an evidence** failure.
+
+**Actions (ranked):**
+1. **Prompt change:** add an explicit rule that the final label must match the
+   runner-up reasoning when the runner-up evidence is stronger — i.e. "do not
+   override your own stated runner-up unless you can quote new evidence that
+   supports the final label." This directly attacks the 27.7% ceiling.
+2. **Pipeline change (zero extra model cost):** when `predicted != expected`
+   *cannot* be known at inference, but `runner_up` can be returned at
+   inference — implement a **runner-up rescue**: if the reasoning's runner-up
+   and the final label differ, route the image to a **single** escalated
+   second pass (§4) instead of accepting the miss.
+3. **Evaluation change:** score `runner_up == expected` as a partial credit and
+   track it per class so prompt iterations are judged on near-miss reduction.
+
+---
+
+## 4. Confidence-gated escalation
+
+**Source:** `reports/monte_carlo/routing_abstention.md`
+
+| alpha | escalated | accuracy | cost factor |
+|---:|---:|---:|---:|
+| 5% | 76 | 0.845 | 1.10x |
+| 10% | 151 | 0.864 | 1.20x |
+| 15% | 227 | 0.879 | 1.30x |
+| 20% | 302 | 0.891 | 1.40x |
+| 30% | 454 | 0.895 | 1.60x |
+
+Sensitivity band ±5pp on the escalated-model accuracy moves the 15–20% points
+by ≤±1pp — the recommendation is robust to the stronger-model assumption.
+
+**Interpretation.** The lowest-confidence images (high label entropy, a
+near-miss signal, or uncertainty phrasing in the reasoning) are exactly where a
+stronger model / higher reasoning effort pays. The curve is steepest through
+10–20%.
+
+**Action:** For production-scale runs, escalate the bottom ~10–15% by
+confidence to a stronger model or `--reasoning-effort max`. Expected +4–6pp at
++20–30% cost. Candidate list: `reports/monte_carlo/escalation_candidates.txt`.
+
+---
+
+## 5. Failure minimization
+
+**Source:** `reports/monte_carlo/failure_pipeline.md`
+
+- Observed row failure rate (historical): **2.716%**.
+- Simulated current pipeline (fallback **on**): **0.114%** — a ~24× reduction.
+- With fallback **off**: 2.86% (matches the historical rate).
+- At 320,000 images: ~364 expected failed rows (95% CI 328–402),
+  P(>1% failures) = 0.000.
+- `max_tries` is nearly irrelevant (1 vs 5: 2.94% vs 2.86% without fallback).
+
+**Actions:**
+1. **Keep `--fallback-model` enabled on every production run.** It is the
+   dominant failure lever.
+2. **Do not spend on higher `MAX_TRIES`.** Retrying the same model does not
+   fix a terminal failure; the fallback model does.
+3. **Route failure-recovery to the fallback for `finish_reason=length` too** —
+   token-cap salvaging is already active; verify fallback coverage in the
+   manifest (`fallback` field) at scale.
+
+---
+
+## 6. Prompt ablation: what the versions actually changed
+
+**Source:** `reports/monte_carlo/prompt_ablation.md`
+
+| A | B | shared | delta | P(A wins) | verdict |
+|---|---|---:|---:|---:|---|
+| v0 | v17 | 155 | −0.284 | 0.000 | v17 wins** |
+| v0 | v16 | 314 | −0.217 | 0.000 | v16 wins** |
+| v0 | v11.8 | 898 | −0.130 | 0.000 | v11.8 wins** |
+| v11.8 | v14 | 160 | −0.056 | 0.077 | v14 likely |
+| v11.8 | v17 | 159 | +0.025 | 0.936 | v11.8 likely |
+| v16 | v17 | 159 | +0.006 | 0.565 | inconclusive |
+| v11.8 | v16 | 319 | −0.009 | 0.305 | inconclusive |
+
+**Interpretation.**
+- The big win was **v0 → the v11.x scratchpad line (+13–28pp)**. Function-based
+  scratchpad reasoning is the largest single contributor.
+- **v16 vs v17 is a statistical tie** (+0.6pp, P=0.565). The "v17 is better"
+  narrative is NOT supported on shared images.
+- **v11.8 still edges v17** (+2.5pp, P=0.936) on shared images.
+
+**Action:** Before the next prompt version, run the candidate against **v11.8**
+AND **v17.2** on a shared slice, and require P(win) ≥ 0.90 (or a CI excluding
+zero). Do not promote on a single-slice headline number. The v18 exemplar
+candidate (§7) is the first test of this gate.
+
+---
+
+## 7. Exemplar mining: first data-backed appendix (`v18`)
+
+**Source:** `reports/monte_carlo/exemplar_candidates.md`
+
+- 12 targetable confusion pairs; 4 exemplars selected (11,383 chars), simulated
+  gain **32.8 errors = 4.27% of the error pool**.
+- Selected: `letter→memo`, `specification→form`, `resume→form`,
+  `questionnaire→form` — all correct traces whose runner-up named the decoy.
+- Registered as **`PROMPT_V18`** (v17.2 + appendix; **NOT default**).
+
+**Interpretation.** The 4 selected pairs cover 131 of 767 corpus errors (17%).
+Notably **`budget→invoice` (52 errors, #2 pair) was NOT covered** — no correct
+trace exists in the corpus where a budget page names invoice as its runner-up.
+That gap is itself the next exemplar to mine/collect.
+
+**Action:** verify v18 on the exemplar slice (in progress) before promoting.
+
+---
+
+## 8. Class-level priorities (aggregate corpus accuracy)
+
+| Class | Accuracy | Status |
+|---|---:|---|
+| budget | 62.0% | **critical** — weakest |
+| presentation | 71.2% | critical |
+| invoice | 74.2% | high |
+| scientific_report | 74.6% | high |
+| letter | 78.6% | high |
+| handwritten | 80.4% | medium |
+| specification | 81.5% | medium |
+| form | 81.8% | medium |
+| ... email | 95.5% | strong |
+
+Top confusion pairs (corpus-wide): `letter→memo` (53), `budget→invoice` (52),
+`invoice→form` (41), `specification→form` (41), `budget→form` (33),
+`scientific_report→form` (23), `invoice→budget` (22).
+
+**Interpretation.** The `form` attractor is systemic: 5 of the top 8 pairs end
+in `form`. The financial cluster (`budget↔invoice`, 74 errors) is the second
+system. `letter→memo` is the third (53 errors, plus 19 handwritten→letter).
+
+---
+
+## 9. Consolidated, prioritized enhancement list
+
+### Tier 1 — highest return (prompt or zero-cost pipeline)
+
+1. **Runner-up rescue rule (simulated +3.9pp near-miss ceiling; NOT yet
+   verified).** Add prompt language that forbids overriding the stated runner-up
+   without new evidence; add an inference-time rescue that escalates any image
+   whose runner-up differs from the final label. **Verified fact from v18:** the
+   exemplar experiment (−4.2pp) proves more exemplar text is NOT the fix — the
+   fix is a decision rule. This is the next experiment to run.
+2. **Form anti-attractor calibration.** New calibration lines: "form is never a
+   default; if your final label is form and any non-form check showed positive
+   evidence, you have inverted the cascade." Specifically target the 5 pairs
+   ending in form.
+3. **Re-verify escalation with a stronger model.** The tail is confirmed hard
+   (66.7%); the same-model-max-effort escalation is confirmed ineffective
+   (62.5%). Next: escalate the escalation tail through a genuinely stronger
+   model (kimi/gemini-class) and measure vs 66.7%.
+
+### Tier 2 — pipeline/production
+
+4. **Confidence-gated escalation at scale (only with a stronger model).**
+   Escalate bottom 10–15% confidence to a stronger model; the same-model higher
+   effort path is retired on this evidence.
+5. **Fallback model mandatory.** Keep `--fallback-model` on; do not spend on
+   higher `MAX_TRIES`.
+6. **Near-miss as a tracked metric.** Score `runner_up == expected` per class so
+   iterations are gated on near-miss reduction, not just exact-match.
+
+### Tier 3 — evaluation discipline
+
+7. **Statistical promotion gate.** Candidate prompts must beat the incumbent
+   (and v11.8) on shared images with P(win) ≥ 0.90 before becoming default.
+   (v16 vs v17: P=0.565 — inconclusive; do not assume v17 is better.)
+8. **Re-run the exemplar miner after each experiment** so the appendix tracks
+   the newest confusion pairs — but gate any exemplar addition on a measured
+   slice test (v18 failed this gate).
+
+---
+
+## 10. Verification results (measured vs simulated)
+
+`monte_carlo_verify.py --run-eval` (spend-minimal: 2 datasets, 4 targeted evals,
+48 images each) completed. Source: `reports/monte_carlo/verification_results.md`.
+
+### Escalation slice (lowest-confidence 3% tail)
+
+| run | rows | accuracy |
+|---|---:|---:|
+| base (v11.8) | 48 | 66.7% |
+| escalated (v11.8, `--reasoning-effort max`) | 48 | 62.5% |
+
+**Measured tail accuracy (66.7%) is well below the corpus average (82%) —
+confirms the confidence ordering flags genuinely hard images.** The simulator's
+`p_correct` mean for these images (0.425) is lower still, i.e. the heuristic is
+conservative but directionally correct.
+
+**Critical caveat:** escalating to a *stronger model* was the assumption that
+gave +4–6pp; escalating to the SAME model at higher reasoning effort did NOT
+help (62.5% < 66.7%). Higher effort does not fix hard images on this model
+line. Escalation requires a genuinely stronger model (e.g. kimi/gemini-class),
+which should be validated before production adoption.
+
+### Exemplar slice (top confusion pairs)
+
+| run | rows | accuracy |
+|---|---:|---:|
+| base (v17.2) | 48 | 68.8% |
+| exemplar (v18) | 48 | 64.6% |
+
+**Delta (v18 − v17.2): −4.2pp — the exemplar appendix did NOT improve accuracy
+on the targeted slice; it slightly hurt.** v18 should NOT be promoted to default
+on this evidence. The four appended worked examples (11,383 chars) added
+verbosity without correcting the runner-up-vs-final decision.
+
+**Action revision:** instead of adding more exemplar text, the highest-value
+next experiment is the **runner-up rescue rule** (§3) — a short calibration
+sentence forbidding the model to override its own stated runner-up without new
+evidence — evaluated on the same exemplar slice, plus a measured check on
+whether a stronger-model escalation beats the 66.7% base on the escalation tail.

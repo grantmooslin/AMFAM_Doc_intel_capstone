@@ -3,6 +3,20 @@
 from scripts.braintrust import braintrust_openrouter_input as bi
 
 
+class TestNearMissScore:
+    def test_zero_when_prediction_correct(self):
+        assert bi.near_miss_score("invoice", "invoice", "budget") == 0.0
+
+    def test_one_when_runner_up_is_correct(self):
+        assert bi.near_miss_score("budget", "invoice", "invoice") == 1.0
+
+    def test_zero_when_runner_up_does_not_match(self):
+        assert bi.near_miss_score("budget", "letter", "invoice") == 0.0
+
+    def test_zero_when_no_runner_up_recorded(self):
+        assert bi.near_miss_score("budget", "invoice", "") == 0.0
+
+
 class TestExtractClassFromFilename:
     def test_extracts_middle_segment(self):
         name = "processed_balanced__invoice__0001.png"

@@ -1,0 +1,17 @@
+# Top 15 lowest-confidence images for escalation (alpha=1%)
+# columns: filename | expected | mode | n_obs | confidence | margin | entropy | near_miss | uncertainty
+rvl_cdip__file_folder__0043.png | file_folder | file_folder | 2 | 0.000 | 0.000 | 1.000 | 1 | 1
+rvl_cdip__scientific_report__0043.png | scientific_report | scientific_report | 2 | 0.000 | 0.000 | 1.000 | 1 | 1
+rvl_cdip__budget__0024.png | budget | form | 3 | 0.000 | 0.000 | 1.000 | 1 | 1
+rvl_cdip__news_article__0008.png | news_article | news_article | 7 | 0.076 | 0.143 | 0.985 | 1 | 1
+rvl_cdip__advertisement__0003.png | advertisement | advertisement | 8 | 0.096 | 0.125 | 0.887 | 1 | 1
+rvl_cdip__budget__0011.png | budget | form | 4 | 0.100 | 0.000 | 1.000 | 0 | 1
+rvl_cdip__budget__0019.png | budget | budget | 2 | 0.100 | 0.000 | 1.000 | 1 | 0
+rvl_cdip__presentation__0011.png | presentation | news_article | 3 | 0.100 | 0.000 | 1.000 | 0 | 1
+rvl_cdip__resume__0015.png | resume | form | 4 | 0.100 | 0.000 | 1.000 | 0 | 1
+rvl_cdip__handwritten__0020.png | handwritten | scientific_report | 3 | 0.100 | 0.000 | 1.000 | 1 | 0
+rvl_cdip__file_folder__0049.png | file_folder | file_folder | 2 | 0.100 | 0.000 | 1.000 | 0 | 1
+rvl_cdip__file_folder__0032.png | file_folder | advertisement | 2 | 0.100 | 0.000 | 1.000 | 0 | 1
+rvl_cdip__handwritten__0039.png | handwritten | advertisement | 2 | 0.100 | 0.000 | 1.000 | 0 | 1
+rvl_cdip__form__0037.png | form | form | 2 | 0.100 | 0.000 | 1.000 | 1 | 0
+rvl_cdip__invoice__0030.png | invoice | form | 3 | 0.100 | 0.000 | 1.000 | 1 | 0

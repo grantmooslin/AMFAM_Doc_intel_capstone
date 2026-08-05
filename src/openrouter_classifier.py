@@ -43,6 +43,33 @@ def clean_prediction(text: Union[str, None]) -> str:
     return text
 
 
+def extract_runner_up(text: str) -> str:
+    """Extract the model's runner-up (second-choice) label from the reasoning trace.
+
+    The classification prompt's scratchpad procedure ends with a
+    ``Runner-up: <label>, ruled out because ...`` line naming the label the model
+    almost picked. Returns the FIRST valid class name appearing after that marker
+    (positional, not ``VALID_CLASSES`` order), or "" when no marker/class is
+    present. ``text`` may be a reasoning_content trace or a raw final answer.
+    """
+    if not text:
+        return ""
+    import re
+    marker = re.search(r"(?i)runner[- ]?up\s*:?\s*(.+)", text)
+    if not marker:
+        return ""
+    remainder = marker.group(1).lower()
+    candidates = [
+        (match.start(), cls)
+        for cls in VALID_CLASSES
+        for match in [re.search(r"\b" + re.escape(cls) + r"\b", remainder)]
+        if match
+    ]
+    if not candidates:
+        return ""
+    return min(candidates, key=lambda pair: pair[0])[1]
+
+
 def classify_image(api_key: str, image_path: Path, model: str = "openai/gpt-4o") -> dict:
     """
     Classify a document image using a vision model through OpenRouter API.

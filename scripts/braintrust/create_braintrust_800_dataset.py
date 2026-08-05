@@ -23,6 +23,8 @@ Usage:
     python scripts/braintrust/create_braintrust_800_dataset.py --output-dir ./fixed_size_sampled
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import os
@@ -90,18 +92,27 @@ RVL_CDIP_LABELS = [
 # ---------------------------------------------------------------------------
 
 def download_parquet(url: str, cache_dir: Path) -> Path:
-    """Stream the source parquet into a temp file (not the full dataset)."""
+    """Stream the source parquet into a temp file (not the full dataset).
+
+    Writes to a ``.part`` file and atomically renames it into place so an
+    interrupted/flaky download never leaves a partial file that a later run
+    would mistake for a valid cache.
+    """
     dest = cache_dir / "rvl_cdip_source.parquet"
     if dest.exists() and dest.stat().st_size > 0:
         print(f"Using cached source parquet: {dest}")
         return dest
+
+    part = cache_dir / "rvl_cdip_source.parquet.part"
+    if part.exists():
+        part.unlink()
 
     print(f"Downloading source parquet ({url})...")
     with requests.get(url, stream=True, timeout=600) as response:
         response.raise_for_status()
         total = int(response.headers.get("Content-Length", 0))
         written = 0
-        with open(dest, "wb") as f:
+        with open(part, "wb") as f:
             for chunk in response.iter_content(chunk_size=1 << 20):
                 f.write(chunk)
                 written += len(chunk)
@@ -109,6 +120,7 @@ def download_parquet(url: str, cache_dir: Path) -> Path:
                     pct = written / total * 100
                     print(f"\r  {written / 1e6:,.1f} / {total / 1e6:,.1f} MB ({pct:.0f}%)", end="", flush=True)
         print()
+    os.replace(part, dest)
     print(f"Downloaded {dest.stat().st_size / 1e6:,.1f} MB to {dest}")
     return dest
 
@@ -289,13 +301,16 @@ def main() -> None:
                         help="Parquet URL to stream images from")
     parser.add_argument("--output-dir", type=Path, default=None,
                         help="Optional: also write the processed PNGs here")
+    parser.add_argument("--cache-dir", type=Path, default=Path(tempfile.gettempdir()) / "rvl_cdip_slice",
+                        help="Directory for the temporary source parquet (default: tempdir)")
     args = parser.parse_args()
 
     (api_key,) = require_env("BRAINTRUST_API_KEY")
     target_size = (args.target_size[0], args.target_size[1])
 
-    cache_dir = Path(tempfile.gettempdir()) / "rvl_cdip_slice"
+    cache_dir = args.cache_dir
     cache_dir.mkdir(parents=True, exist_ok=True)
+    parquet_path: Path | None = None
     try:
         parquet_path = download_parquet(args.source_url, cache_dir)
         rows = load_parquet_rows(parquet_path)
@@ -303,11 +318,12 @@ def main() -> None:
         records = sample_rows(rows, args.images_per_class, args.seed)
     finally:
         # Do not keep the source parquet around.
-        try:
-            parquet_path.unlink()
-            cache_dir.rmdir()
-        except OSError:
-            pass
+        if parquet_path is not None:
+            try:
+                parquet_path.unlink()
+                cache_dir.rmdir()
+            except OSError:
+                pass
 
     if len(records) != args.images_per_class * 16:
         print(f"Warning: expected {args.images_per_class * 16} records, got {len(records)}", file=sys.stderr)

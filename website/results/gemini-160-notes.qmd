@@ -1,0 +1,65 @@
+---
+title: 'Gemini 2.5 Flash — 160 Images'
+description: 'Braintrust run on the fixed_size_sampled slice: 80.0% accuracy, top confusion pairs.'
+toc: true
+toc-depth: 3
+---
+## Experiment: `google/gemini-2.5-flash` — 160 Images (10 per class × 16 classes)
+
+**Experiment ID:** main-1785360515
+**Link:** <https://www.braintrust.dev/app/UW-Madison-DSHB/p/AMFAM-Doc-Classification/experiments/main-1785360515>
+**Dataset:** Braintrust dataset `fixed_size_sampled` (project `DSHB_amfam_capstone_2026`), images pulled from row attachments
+**Prompt:** `CLASSIFICATION_PROMPT` from `src/openrouter_classifier.py`
+**Settings:** `max_tokens=1024`, `temperature=0.1`, `reasoning.effort=medium`, `max_concurrency=8`
+
+### Results
+
+| Metric | Value |
+| -------- | ------: |
+| **Accuracy (exact_match)** | **80.00%** (128/160 correct) |
+| Prompt tokens (avg) | 1,713 |
+| Completion tokens (avg) | 302 |
+| Completion reasoning tokens (avg) | 300 |
+| Total tokens (avg) | 2,015 |
+| LLM duration (avg) | 4.34s |
+| Errors | 0 |
+
+### Per-class accuracy
+
+| Class | Correct |
+| ------- | --------: |
+| advertisement | 10/10 (100%) |
+| email | 10/10 (100%) |
+| file_folder | 10/10 (100%) |
+| memo | 10/10 (100%) |
+| handwritten | 9/10 (90%) |
+| letter | 9/10 (90%) |
+| resume | 9/10 (90%) |
+| scientific_publication | 9/10 (90%) |
+| specification | 9/10 (90%) |
+| news_article | 8/10 (80%) |
+| scientific_report | 8/10 (80%) |
+| budget | 6/10 (60%) |
+| invoice | 6/10 (60%) |
+| questionnaire | 6/10 (60%) |
+| presentation | 5/10 (50%) |
+| form | 4/10 (40%) |
+
+### Top confusions (expected → predicted)
+
+| Expected | Predicted | Count |
+| ---------- | ----------- | ------: |
+| invoice | budget | 4 |
+| presentation | file_folder | 3 |
+| form | budget | 2 |
+| news_article | scientific_publication | 2 |
+
+The remaining 21 misclassifications are singletons spread across `budget`, `form`,
+`questionnaire`, `presentation`, and the `scientific_*` pair.
+
+### Notes
+
+- Dataset holds 166 rows; 6 are placeholder rows with no stored image attachment and are skipped, leaving 160 labeled images.
+- `invoice` ↔ `budget` remains the dominant confusion despite the disambiguation rules; checks and statements of account are still read as invoices and vice versa.
+- `form` is the weakest class (40%) — mostly absorbed by `budget`, `specification`, and the `scientific_*` classes.
+- Braintrust rejected part of this run's log batches (`num_scores_calendar_months` quota, 11,005/11,000), so the experiment in the UI contains fewer rows than the 160 scored locally.

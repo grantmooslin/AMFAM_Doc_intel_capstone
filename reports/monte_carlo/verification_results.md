@@ -1,0 +1,76 @@
+# Verification: Measured vs Simulated
+
+## Escalation slice (low-confidence tail)
+
+| run | rows | correct | accuracy |
+|---|---:|---:|---:|
+| base (v11.8) | 48 | 32 | 0.667 |
+| escalated (max effort) | 48 | 30 | 0.625 |
+
+**Simulated reference:** corpus `p_correct` mean on these images and the
+assumed escalated accuracy (~0.90). Compare measured vs simulated to
+validate the confidence ordering.
+
+**Paired check:** 48 images matched to corpus sim; simulated mean p_correct = 0.425, measured base accuracy = 0.667.
+
+## Exemplar slice (top confusion pairs)
+
+| run | rows | correct | accuracy |
+|---|---:|---:|---:|
+| base (v17.2) | 48 | 33 | 0.688 |
+| exemplar (v18) | 48 | 31 | 0.646 |
+
+**Delta (v18 - v17.2): -0.042** (no gain measured).
+
+### Per-image flips
+
+| filename | expected | base | exemplar |
+|---|---|---|---|
+| `rvl_cdip__budget__0001.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0002.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0004.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0006.png` | `budget` | invoice | invoice |
+| `rvl_cdip__budget__0008.png` | `budget` | presentation | presentation |
+| `rvl_cdip__budget__0009.png` | `budget` | form | form |
+| `rvl_cdip__budget__0011.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0012.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0013.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0043.png` | `budget` | budget | budget |
+| `rvl_cdip__budget__0045.png` | `budget` | budget | budget |
+| `rvl_cdip__invoice__0003.png` | `invoice` | form | budget |
+| `rvl_cdip__invoice__0004.png` | `invoice` | invoice | invoice |
+| `rvl_cdip__invoice__0007.png` | `invoice` | invoice | invoice |
+| `rvl_cdip__invoice__0008.png` | `invoice` | invoice | form |
+| `rvl_cdip__invoice__0010.png` | `invoice` | form | form |
+| `rvl_cdip__invoice__0014.png` | `invoice` | invoice | invoice |
+| `rvl_cdip__letter__0002.png` | `letter` | handwritten | handwritten |
+| `rvl_cdip__letter__0003.png` | `letter` | letter | letter |
+| `rvl_cdip__letter__0005.png` | `letter` | letter | letter |
+| `rvl_cdip__letter__0007.png` | `letter` | letter | letter |
+| `rvl_cdip__letter__0008.png` | `letter` | letter | letter |
+| `rvl_cdip__letter__0009.png` | `letter` | letter | letter |
+| `rvl_cdip__letter__0010.png` | `letter` | memo | memo |
+| `rvl_cdip__scientific_report__0002.png` | `scientific_report` | scientific_report | scientific_report |
+| `rvl_cdip__scientific_report__0003.png` | `scientific_report` | scientific_report | budget |
+| `rvl_cdip__scientific_report__0006.png` | `scientific_report` | scientific_report | scientific_report |
+| `rvl_cdip__scientific_report__0008.png` | `scientific_report` | scientific_report | scientific_report |
+| `rvl_cdip__scientific_report__0012.png` | `scientific_report` | scientific_report | scientific_report |
+| `rvl_cdip__scientific_report__0018.png` | `scientific_report` | form | form |
+| `rvl_cdip__scientific_report__0019.png` | `scientific_report` | form | form |
+| `rvl_cdip__scientific_report__0045.png` | `scientific_report` | form | form |
+| `rvl_cdip__specification__0001.png` | `specification` | specification | specification |
+| `rvl_cdip__specification__0006.png` | `specification` | specification | specification |
+| `rvl_cdip__specification__0010.png` | `specification` | form | form |
+| `rvl_cdip__specification__0012.png` | `specification` | form | form |
+| `rvl_cdip__specification__0013.png` | `specification` | specification | specification |
+| `rvl_cdip__specification__0015.png` | `specification` | specification | specification |
+| `rvl_cdip__specification__0017.png` | `specification` | form | form |
+| `rvl_cdip__specification__0018.png` | `specification` | specification | specification |
+| `test_imagesc_c_g_z_cgz07d00_tnwl0001081.tif.png` | `budget` | budget | budget |
+| `test_imagesc_c_p_t_cpt85d00_503616995.tif.png` | `letter` | letter | letter |
+| `test_imagesd_d_a_v_dav40c00_ti16801308.tif.png` | `invoice` | budget | budget |
+| `test_imagesr_r_z_u_rzu86d00_tcal0288721.tif.png` | `budget` | budget | budget |
+| `test_imagest_t_q_i_tqi16e00_2040855570.tif.png` | `budget` | budget | budget |
+| `test_imagesu_u_s_a_usa07d00_timo0000799.tif.png` | `budget` | budget | budget |
+| `test_imagesw_w_c_e_wce83f00_0001140924.tif.png` | `invoice` | budget | budget |
+| `test_imagesw_w_m_v_wmv40c00_ti16811191_1192.tif.png` | `budget` | budget | budget |
